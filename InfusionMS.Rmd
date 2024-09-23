@@ -1,5 +1,5 @@
 ---
-title: "Assembling simulation results for ms"
+title: "Assembling figures, tables and SI for Infusion MS"
 output: 
   html_document:
     toc: true
@@ -24,12 +24,13 @@ checkwd()
 source("diy2inf/package/R/performance_fns.R")
 source("diy2inf/package/R/output_files_manips.R")
 MSdir <- "MS/"
+SIdir <- "MS/SI_InfusionMS/"
 bootCI <- "BartCI"
 ```
 ```{r knitr_utilities}
-# Utility to make sure necessary files are copied in a dedicated directory
+# Utility to make sure necessary files are copied in the Supplementary Information
 load4MS <- function(file, ...) {
-  copyforMS <- paste0("MS/",file)
+  copyforMS <- paste0(SIdir,file)
   if ( ! file.exists(copyforMS)) {
     copydir <- dirname(copyforMS)
     if ( ! dir.exists(copydir)) dir.create(copydir, recursive = TRUE)
@@ -565,8 +566,9 @@ perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
 ```{r logLexploration, fig.width = 4, fig.height = 4}
 modelpath_nickname <- "N_7from17"
 load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/saves4Rmd.rda", verbose=TRUE)
-load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/saved_fits_2.1.187.1/upsliks_1.rda", verbose=TRUE)
-load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/reftable_abcrf.rda")
+# Next two files too big for inclusion in the SI repository
+load("diy2inf_simuls/admixtOutOfA/N_7from17/saved_fits_2.1.187.1/upsliks_1.rda", verbose=TRUE) 
+load("diy2inf_simuls/admixtOutOfA/N_7from17/reftable_abcrf.rda")
 
 slik <- upsliks$"20K"
 pred_reft_slik <- predict(slik, newdata=slik$logLs[,names(LOWER)], which="safe")
@@ -1060,8 +1062,9 @@ perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
 
 
 #### 2D profile
-This was produced from the second of the 200 simulated datasets for the 13-parameter case with composite parameters, refitted in a 4-parameter sub-model. The likelihood surface is here inferred using a reference table of 22000 samples. The horizontal ridge near `log.Nbn3.`=0.7 happens for $d_3=2$ and $N_{\textrm{bn3}}=5$ as `log.Nbn3.` and `d3_Nbn3` are drawn as continuous variables but the simulation software rounds times and population sizes to integer values. The intermediate reference table of 11000 samples already provided the same pattern. The following code may be used to reproduce the figure
+This was produced from the second of the 200 simulated datasets for the 13-parameter case with composite parameters, refitted in a 4-parameter sub-model. The likelihood surface is here inferred using a reference table of 22000 samples. The horizontal ridge near `log.Nbn3.`=0.7 happens for $d_3=2$ and $N_{\textrm{bn3}}=5$ as `log.Nbn3.` and `d3_Nbn3` are drawn as continuous variables but the simulation software rounds times and population sizes to integer values. The intermediate reference table of 11000 samples already provided the same pattern. The following code was first used to produce the figure
 ```{r prof2D_b3, eval=FALSE}
+# Next file too big for inclusion in Supplementary Information repository
 load(file="diy2inf_simuls/admixtOutOfA/P_4from17/saved_info_for_2Dprofile/slik.22K.rda")
 # Slow!:
 Infusion::plot2Dprof(slik22, list("d3_Nbn3","log.Nbn3."), gridSteps = 65L,
@@ -1070,9 +1073,8 @@ Infusion::plot2Dprof(slik22, list("d3_Nbn3","log.Nbn3."), gridSteps = 65L,
                     }
                   )
 ```
-but the long part of the computation was saved so that 
+but the long part of the computation was saved so that the Figure can be reproduced by
 ```{r prof2D_b3saved, fig.width = 6, fig.height = 6}
-load4MS(file="diy2inf_simuls/admixtOutOfA/P_4from17/saved_info_for_2Dprofile/slik.22K.rda")
 load4MS(file="diy2inf_simuls/admixtOutOfA/P_4from17/saved_info_for_2Dprofile/profiles_info.rda")
 pdf("MS/2Dprofile_b3_P4from17.22K.pdf",width = 5,height = 6.5) # not controlled by the chunk args args...
 Infusion::plot2Dprof(profiles_info$fit_info, 
