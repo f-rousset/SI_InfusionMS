@@ -14,22 +14,22 @@ This script has been used to generate the Figures and Tables for the manuscript,
 <!-- See https://stackoverflow.com/a/52433616 -->
 ```{r setup, cache = FALSE, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-correctdir <- "D:/home/francois/travail/stats/Infusionplus"
+correctdir <- "D:/home/francois/travail/stats/Infusionplus/MS/SI_InfusionMS"
 knitr::opts_knit$set(root.dir = correctdir)
 ```
 
 ```{r, cache = FALSE, include=FALSE}
 checkwd <- function() {if (getwd() !=correctdir) stop(paste("suspect wd:",getwd()))}
 checkwd()
-source("diy2inf/package/R/performance_fns.R")
-source("diy2inf/package/R/output_files_manips.R")
-MSdir <- "MS/"
-SIdir <- "MS/SI_InfusionMS/"
+source("./diy2inf/R/performance_fns.R")
+source("./diy2inf/R/output_files_manips.R")
+# Directory where figures and tables will be written if this script is run (and if the directory exists!)
+MSdir <- "./../scratch/"   
 bootCI <- "BartCI"
 ```
 ```{r knitr_utilities}
 # Utility to make sure necessary files are copied in the Supplementary Information
-load4MS <- function(file, ...) {
+load4MS <- function(file, SIdir="./", ...) {
   copyforMS <- paste0(SIdir,file)
   if ( ! file.exists(copyforMS)) {
     copydir <- dirname(copyforMS)
@@ -563,7 +563,7 @@ perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
 ```
 ### Effect of iterative workflow on parameter exploration
 
-```{r logLexploration, fig.width = 4, fig.height = 4}
+```{r logLexploration, fig.width = 4, fig.height = 4, eval=FALSE}
 modelpath_nickname <- "N_7from17"
 load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/saves4Rmd.rda", verbose=TRUE)
 # Next two files too big for inclusion in the SI repository
@@ -1076,7 +1076,7 @@ Infusion::plot2Dprof(slik22, list("d3_Nbn3","log.Nbn3."), gridSteps = 65L,
 but the long part of the computation was saved so that the Figure can be reproduced by
 ```{r prof2D_b3saved, fig.width = 6, fig.height = 6}
 load4MS(file="diy2inf_simuls/admixtOutOfA/P_4from17/saved_info_for_2Dprofile/profiles_info.rda")
-pdf("MS/2Dprofile_b3_P4from17.22K.pdf",width = 5,height = 6.5) # not controlled by the chunk args args...
+pdf(paste0(MSdir, "2Dprofile_b3_P4from17.22K.pdf"),width = 5,height = 6.5) # dim not controlled by the chunk args args...
 Infusion::plot2Dprof(profiles_info$fit_info, 
            pars=list("d3_Nbn3","log.Nbn3."), 
            profiles = profiles_info$profiles, 
