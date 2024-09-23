@@ -21,10 +21,9 @@ code or by the Rmarkdown script.
 
 To reproduce some computations on another computer or directory, there are two directories 
 which need to be specified in the first R chunks of the Rmarkdown file:
-
-correctdir : the base directory where the files from this git repository are copied.
-MSdir : where figures and tables will be written if this script is run.
-The base directory can easily be changed but the subdirectory architecture of 
-the files within the git repository should not be modified.
+* 'correctdir' : the base directory where the files from this git repository are copied.
+* 'MSdir' : the directory where figures and tables will be written if the Rmarkdown script is run.
+'correctdir' can easily be changed but the subdirectory architecture of 
+the files from the git repository should not be modified.
   
   
