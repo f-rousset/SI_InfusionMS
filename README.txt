@@ -3,7 +3,7 @@ By Rousset, Leblois, Estoup & Marin
 
 Scripts that can be used to reproduce the simulations are provides in directories
 toyTests/ and diy2inf_simuls/ . These directories themselves contain nested 
-subdirectories. Each terminal subsdirectory corresponds to a a simulation scenario.
+subdirectories. Each terminal subsdirectory corresponds to a simulation scenario.
 Files from parent directories should be copied in a terminal subdirectory in order 
 to reproduce simulations for the corresponding simulation scenario. In particular, 
 the two 'generic_workflow.R' files are each a master script file whose execution depends 
