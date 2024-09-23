@@ -1,0 +1,67 @@
+data_HA_INFUSION.txt
+8 parameters and 76 summary statistics
+
+1 scenarios: 8 
+scenario 1 [1.0] (6)
+N1 N2 N3 N4
+0 sample 1
+3 sample 2
+3 sample 3
+3 sample 4
+T1 split 4 2 3 ar
+48 merge 1 3
+60 merge 1 2
+
+historical parameters priors (6,0)
+N1 N UN[1,1000000,0.0,0.0]
+N2 N UN[1,1000000,0.0,0.0]
+N3 N UN[1,1000000,0.0,0.0]
+N4 N UN[1,1000000,0.0,0.0]
+T1 T UN[3,45,0.0,0.0]
+ar A UN[0.05,0.95,0.0,0.0]
+
+loci description (18)
+HA244 <A> [M] G1 2 40
+HA201 <A> [M] G1 2 40
+HA555 <A> [M] G1 2 40
+HA605 <A> [M] G1 2 40
+HA281 <A> [M] G1 2 40
+HA627 <A> [M] G1 2 40
+HA565 <A> [M] G1 2 40
+HA234 <A> [M] G1 2 40
+TG-267 <A> [M] G1 2 40
+HA005 <A> [M] G1 2 40
+TG-200 <A> [M] G1 2 40
+TG-253 <A> [M] G1 2 40
+ATCT-105 <A> [M] G1 2 40
+TG-194b <A> [M] G1 3 40
+TG-215 <A> [M] G1 2 40
+TG-223 <A> [M] G1 2 40
+HA282 <A> [M] G1 2 40
+HA094 <A> [M] G1 1 50
+
+group priors (1)
+group G1 [M]
+MEANMU UN[1.00E-005,1.00E-3,0.0005,2]
+GAMMU GA[1.00E-006,1.00E-002,Mean_u,2]
+MEANP UN[0,5.00E-001,0.22,2]
+GAMP GA[0,9.00E-001,Mean_P,2]
+MEANSNI UN[0,0,1.00E-007,2]
+GAMSNI GA[0,0,Mean_u_SNI,2]
+
+group summary statistics (76)
+group G1 (76)
+NAL 1 2 3 4
+HET 1 2 3 4
+VAR 1 2 3 4
+MGW 1 2 3 4
+N2P 1.2 1.3 1.4 2.3 2.4 3.4
+H2P 1.2 1.3 1.4 2.3 2.4 3.4
+V2P 1.2 1.3 1.4 2.3 2.4 3.4
+FST 1.2 1.3 1.4 2.3 2.4 3.4
+LIK 1.2 2.1 1.3 3.1 1.4 4.1 2.3 3.2 2.4 4.2 3.4 4.3
+DAS 1.2 1.3 1.4 2.3 2.4 3.4
+DM2 1.2 1.3 1.4 2.3 2.4 3.4
+AML 1.2.3 2.1.3 3.1.2 1.2.4 2.1.4 4.1.2 1.3.4 3.1.4 4.1.3 2.3.4 3.2.4 4.2.3
+
+scenario N1 N2 N3 N4 T1 ar MEANMU MEANP   NAL_1_1       NAL_1_2       NAL_1_3       NAL_1_4       HET_1_1       HET_1_2       HET_1_3       HET_1_4       VAR_1_1       VAR_1_2       VAR_1_3       VAR_1_4       MGW_1_1       MGW_1_2       MGW_1_3       MGW_1_4      N2P_1_1.2     N2P_1_1.3     N2P_1_1.4     N2P_1_2.3     N2P_1_2.4     N2P_1_3.4     H2P_1_1.2     H2P_1_1.3     H2P_1_1.4     H2P_1_2.3     H2P_1_2.4     H2P_1_3.4     V2P_1_1.2     V2P_1_1.3     V2P_1_1.4     V2P_1_2.3     V2P_1_2.4     V2P_1_3.4     FST_1_1.2     FST_1_1.3     FST_1_1.4     FST_1_2.3     FST_1_2.4     FST_1_3.4     LIK_1_1.2     LIK_1_2.1     LIK_1_1.3     LIK_1_3.1     LIK_1_1.4     LIK_1_4.1     LIK_1_2.3     LIK_1_3.2     LIK_1_2.4     LIK_1_4.2     LIK_1_3.4     LIK_1_4.3     DAS_1_1.2     DAS_1_1.3     DAS_1_1.4     DAS_1_2.3     DAS_1_2.4     DAS_1_3.4     DM2_1_1.2     DM2_1_1.3     DM2_1_1.4     DM2_1_2.3     DM2_1_2.4     DM2_1_3.4    AML_1_1.2.3   AML_1_2.1.3   AML_1_3.1.2   AML_1_1.2.4   AML_1_2.1.4   AML_1_4.1.2   AML_1_1.3.4   AML_1_3.1.4   AML_1_4.1.3   AML_1_2.3.4   AML_1_3.2.4   AML_1_4.2.3  

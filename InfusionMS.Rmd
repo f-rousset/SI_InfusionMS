@@ -1,0 +1,1221 @@
+---
+title: "Assembling simulation results for ms"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+---
+
+# Setup and definitions
+
+This script has been used to generate the Figures and Tables for the manuscript, from the saved raw simulation results. The latter results were produced with various versions of the `Infusion` package, with minimal version 2.1.186.2 (implementing the ultimately retained values of control parameters of the iterative workflow)  for the fits, and minimal version 2.1.196 (implementing a fix for maximization issues with local maxima of the likelihood surfaces in the bootstrap procedures) for the post-fit analyses.
+
+<!-- See https://stackoverflow.com/a/52433616 -->
+```{r setup, cache = FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+correctdir <- "D:/home/francois/travail/stats/Infusionplus"
+knitr::opts_knit$set(root.dir = correctdir)
+```
+
+```{r, cache = FALSE, include=FALSE}
+checkwd <- function() {if (getwd() !=correctdir) stop(paste("suspect wd:",getwd()))}
+checkwd()
+source("diy2inf/package/R/performance_fns.R")
+source("diy2inf/package/R/output_files_manips.R")
+MSdir <- "MS/"
+bootCI <- "BartCI"
+```
+```{r knitr_utilities}
+# Utility to make sure necessary files are copied in a dedicated directory
+load4MS <- function(file, ...) {
+  copyforMS <- paste0("MS/",file)
+  if ( ! file.exists(copyforMS)) {
+    copydir <- dirname(copyforMS)
+    if ( ! dir.exists(copydir)) dir.create(copydir, recursive = TRUE)
+    file.copy(file, copyforMS)
+  }
+  load(file, ..., envir=knitr::knit_global())
+}
+```
+
+```{r utilities, cache=FALSE}
+library("ggplot2")
+library(latex2exp)
+par2ltx_backup <- function(v) {
+  gsub("V([0-9]*)","$u_{\\1}$", v) # note replacement of V by u
+}
+par2ltx <- function(v) switch(v,
+         "logTh1"=r"[$\log(N_1\bar{\mu})$]",
+         "logTh2"=r"[$\log(N_2\bar{\mu})$]",
+         "logTh3"=r"[$\log(N_3\bar{\mu})$]",
+         "logTh4"=r"[$\log(N_4\bar{\mu})$]",
+         "logMu"=r"[$\log(\bar{\mu})$]",
+         "MEANP"=r"[$\bar{p}$]",
+         "log.N1."=r"[$\log(N_1)$]",
+         "log.N2."=r"[$\log(N_2)$]",
+         "log.N3."=r"[$\log(N_3)$]",
+         "log.N4."=r"[$\log(N_4)$]",
+         "N1"=r"[$N_1$]",
+         "N2"=r"[$N_2$]",
+         "N3"=r"[$N_3$]",
+         "N4"=r"[$N_4$]",
+         "N34"=r"[$N_{34}$]",
+         "t1"=r"[$t_1$]",
+         "T1"=r"[$t_1$]",
+         "d3"=r"[$d_3$]",
+         "d4"=r"[$d_4$]",
+         "d34"=r"[$d_{34}$]",
+         "ar"=r"[$r_{\textrm{a}}$]",
+         "ra"=r"[$r_{\textrm{a}}$]",
+         "log.t12."=r"[$\log(t_{12})$]",
+         "log1p.t23."=r"[$\log(1+t_{23})$]",
+         "Nbn3"=r"[$N_{\textrm{bn3}}$]",
+         "Nbn4"=r"[$N_{\textrm{bn4}}$]",
+         "Nbn34"=r"[$N_{\textrm{bn34}}$]",
+         "log1p.t34."=r"[$\log(1+t_{34})$]",
+         "log.Na."=r"[$\log(N_{\textrm{a}})$]",
+         "d3_Nbn3"=r"[$d_3/N_{\textrm{bn3}}$]",
+         "d4_Nbn4"=r"[$d_4/N_{\textrm{bn4}}$]",
+         "d34_Nbn34"=r"[$d_{34}/N_{\textrm{bn34}}$]",
+         "log.Nbn3."=r"[$\log(N_{\textrm{bn3}})$]",
+         "log.Nbn4."=r"[$\log(N_{\textrm{bn4}})$]",
+         "log.Nbn34."=r"[$\log(N_{\textrm{bn34}})$]",
+         par2ltx_backup(v))
+# usage: latex2exp::TeX(par2ltx(v))
+
+prettyround <- function(x,extradigits=0) {
+    ## extradigits=0 => 99(99)99->99(99)99; 999.9->999.9; 9.999->9.999; 0.xxx -> 3 chifres signif
+    for(i in seq_len(length(x))) {
+        xi <- x[i]
+        if (is.na(xi)) x[i] <- NA
+        #ELSE
+        if (xi<1) {n<-3} else if (xi>1000) {n <- ceiling(log(xi,10))} else {n <- 4}
+        n <- n+extradigits
+        x[i] <- round(xi,n)
+    }
+    x
+}
+
+xyfn  <- function(idx,xsep,ysep, steps=7L) {
+  xshift <- (idx-1) %/% (steps)
+  idx  <- (idx-1) %% steps
+  c( x = 0.9+(idx)*(xsep-ysep)+xshift*steps*xsep + xsep/5, # final correction xsep/5 is ad-hoc 
+     y = 0.9-(idx)*ysep)
+}
+
+ord_names <- c('bias.MSLE', 'bias.postEv', 'bias.postMed', 
+               'RMSE.MSLE', 'RMSE.postEv', 'RMSE.postMed', 
+               'cvrg.basicP', 'cvrg.rawbootP', 'cvrg.perc', 'cvrg.mslCI', 
+               'cvrg.bartlettP', 'cvrg.postCI', 'cvrg.HPDint_d')
+if (bootCI=="percCI") {
+  inmain <- setdiff(ord_names, c("cvrg.rstarP","cvrg.pstarBoot","cvrg.mslCI",
+                                     "cvrg.mslCI", "cvrg.HPDint_d", "cvrg.bartlettP"))
+  inms <- setdiff(ord_names,c("cvrg.rstarP","cvrg.pstarBoot","cvrg.mslCI",                                             "cvrg.bartlettP"))
+} else { # show BartlettP instead.
+  inmain <- setdiff(ord_names, c("cvrg.rstarP","cvrg.pstarBoot","cvrg.mslCI",
+                                     "cvrg.mslCI", "cvrg.HPDint_d", "cvrg.perc"))
+  inms <- setdiff(ord_names,c("cvrg.rstarP","cvrg.pstarBoot","cvrg.mslCI",                                             "cvrg.perc"))
+}
+bias_pos <- which(ord_names %in% c("bias.MSLE", "bias.postEv", "bias.postMed"))
+RMSE_pos <- which(ord_names %in% c("RMSE.MSLE", "RMSE.postEv", "RMSE.postMed"))
+
+vec2tex  <- function(locv, retained, bias_pos, RMSE_pos, 
+                     cvrg_pos=setdiff(seq_along(ord_names),c(bias_pos,RMSE_pos))) {
+  locv <- locv[retained]
+  locv <- locv[intersect(ord_names,names(locv))]
+  minBias <- bias_pos[which.min(abs(locv[bias_pos]))]
+  minRMSE <- RMSE_pos[which.min(abs(locv[RMSE_pos]))]
+  char_locv <- paste(signif(locv,3L))
+  char_locv[minBias] <- paste0("\\textbf{",char_locv[minBias],"}")
+  char_locv[minRMSE] <- paste0("\\textbf{",char_locv[minRMSE],"}")
+  cvrg_pos <- intersect(grep("cvrg",names(locv)),cvrg_pos)
+  if (length(cvrg_pos)>1L) {
+    bestcvrg <- cvrg_pos[which.min(abs(locv[cvrg_pos]-0.95))]
+    char_locv[bestcvrg] <- paste0("\\textbf{",char_locv[bestcvrg],"}")
+  }
+  paste(paste(char_locv,collapse=" & "),"\\\\ ")
+}
+
+  plot_ecdfs <- function(ecdfs_df, parm, which.p="basicLRT", ...) {
+    LRTs <- df_extract(ecdfs_df, c("SLRTs",parm, which.p))[,"p_value"]
+    plot(ecdf(LRTs), ...)
+  }
+
+calc_ggplot <- function(scaDGparlist, ecdfs_df, modelpath_nickname,
+                        which.p, xsep, filename, scale_col=NULL,
+                        steps=if (npar<9L) {npar} else {7L},
+                        parms=names(scaDGparlist),
+                        texlabels=lapply(parms, function(v) TeX(par2ltx(v)))
+                        ) {
+  npar <- length(parms)
+  ecdfs_pv  <- sapply(parms, function(parm) {df_extract(ecdfs_df, c("SLRTs",parm, which.p))[,"p_value"]})
+  nr <- nrow(ecdfs_pv)
+  ysep <- 1/steps
+  tib  <- as.data.frame(ecdfs_pv+(as.numeric(gl(npar,nr))-1)*xsep)
+  tib   <- tidyr::pivot_longer(tib,seq(npar),names_to="parameter")
+  tib$parameter <- factor(tib$parameter, levels=parms)
+
+  dev.new(width=10, height=2.5)
+  
+  myplot <- ggplot(tib, aes(value, col=parameter))
+  if ( ! is.null(scale_col)) myplot <- myplot + scale_color_manual(values=scale_col)
+  for (it in seq(npar)) {
+    xy   <- xyfn(it,xsep=xsep,ysep=ysep, steps=steps)
+    myplot <- myplot + 
+      geom_abline(slope=1,intercept=-(it-1)*xsep, col="grey") +
+      annotate("text", x = xy["x"], y = xy["y"], 
+      #https://stackoverflow.com/questions/63095027/why-does-ggplot-annotate-throw-this-warning-in-is-nax-is-na-applied-to-no               l
+               label = attr(texlabels[[it]],"plotmath"), parse=TRUE,
+               size=4)
+  }
+  
+  myplot <- myplot + stat_ecdf(geom="step") + theme_void() + 
+    coord_fixed() + 
+    labs(y="CDF of p-values\n") +
+    theme(
+      axis.title.y =  element_text(angle = 90),
+      axis.ticks.y = element_line(),
+      axis.line.y = element_line(),
+      axis.text.y = element_text(),
+      legend.position="none" 
+    ) +
+    scale_y_continuous(breaks=seq(0,1,0.25)) +
+    scale_x_continuous(expand=expansion(mult=c(0.01,0.05)))
+  
+  ggsave(filename=filename)
+  return(myplot)
+}
+
+plot. <- FALSE
+
+```
+# Ladybird invasion scenario (8 parameters)
+
+## First set of parameters
+### Base simulations
+```{r D8pars}
+modelpath_nickname <- "D_axy_8pars"
+load4MS("diy2inf_simuls/Harmonia/D_axy_8pars/saves4Rmd.rda", verbose=TRUE)
+load4MS("diy2inf_simuls/Harmonia/D_axy_8pars/summaries_list.1_400.v2.1.203.rda") # *all* new 
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+
+```
+
+#### Table
+```{r TableD8pars}
+# paste0("c('",paste0(perf_names, collapse="', '"),"')")
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inmain,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".ltx"))
+}
+```
+#### Figure ECDFs
+
+```{r FigureD8code, fig.width = 7, fig.height = 2.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
+            which.p="basicLRT", xsep=0.3,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".pdf"))
+```
+
+```{r FigureD8pars, fig.width = 7, fig.height = 2.5}
+print(myplot)
+```
+
+```{r FigureD8rawboocode, fig.width = 7, fig.height = 2.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
+            which.p="rawBootLRT", xsep=0.3,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".rawboot.pdf"))
+```
+
+```{r FigureD8rawboo, fig.width = 7, fig.height = 2.5}
+print(myplot)
+
+```
+
+
+### Compare inferences of `logTh4`
+```{r D8Th4pars}
+modelpath_nickname <- "D_axy_8pars_logTh4"
+load4MS("diy2inf_simuls/Harmonia/D_axy_8pars_logTh4/saves4Rmd.rda", verbose=TRUE)
+load4MS("diy2inf_simuls/Harmonia/D_axy_8pars_logTh4/S_obs_table.rda", verbose=TRUE) # for par.grid
+load4MS("diy2inf_simuls/Harmonia/D_axy_8pars_logTh4/summaries_list.1_200.v2.1.203.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+par.grid <- S_obs_table_info$par.grid
+colnames(par.grid) <- names(LOWER)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, 
+                         par.grid=par.grid, plot.=plot.)
+```
+
+#### Table
+```{r TableD8Th4pars}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inms,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".SI.ltx"))
+}
+```
+#### boxplot
+
+```{r boxpD, fig.width = 7, fig.height = 7}
+load4MS("diy2inf_simuls/Harmonia/D_axy_8pars_logTh4/S_obs_table.rda", verbose=TRUE) # for S_obs_table_info
+  parm <- "logTh4"
+  parmpm <- attr(TeX(par2ltx(parm)),"latex")
+  xy_lims <- c(LOWER[parm],UPPER[parm])
+  
+  tib <- data.frame(ABCRF=df_extract(ecdfs_df,c("abcrf","logTh4","expectation"))[,1],
+                    SMLE=df_extract(ecdfs_df,c("MSL","MSLE","logTh4")))
+  tib <- tidyr::pivot_longer(tib,seq(2),names_to="estimator")
+  tib$estimator <- factor(tib$estimator)
+  unique_x <- unique(S_obs_table_info$par.grid[,parm])
+  tib$DGP <- signif(unique_x,3)[gl(10,40)]
+      
+  udf <- data.frame(ux=unique_x,uy=unique_x)
+                          
+  xyplot <- ggplot(tib, aes(x=DGP, # continuous here
+                            y=value, 
+                            group=interaction(DGP,estimator),
+                            fill=estimator)
+                  ) + geom_boxplot(width=0.15) + theme_classic() + 
+    coord_fixed() + # to control the proportions of the rendered plot
+    labs(x=TeX(paste("Data-generating ",parmpm," value")) , 
+         y=TeX(paste(parmpm," estimates"))) +
+    theme(
+      axis.title.y =  element_text(angle = 90,size=16),
+      axis.title.x =  element_text(, size=16),
+      axis.ticks.y = element_line(),
+      axis.line.y = element_line(),
+      axis.text.y = element_text()
+    ) + 
+    scale_y_continuous(limits=c(-2,1), expand=expansion(add=c(0,0)) )  +
+    scale_x_continuous(breaks=prettyround(unique_x,), expand=expansion(add=c(3/11,3/11))) +
+    geom_abline(slope=1,intercept = 0,col="grey") +
+    geom_hline(yintercept=-0.5, col="blue") + 
+    annotate("text", x = 0.2, y = -0.4, label = "prior mean", size=5, col="blue")
+      
+  print(xyplot)
+  ggsave(filename=paste0(MSdir,"boxp_",modelpath_nickname,".pdf"))
+
+```
+## Second set of parameters
+
+### Base simulations
+
+```{r A8pars}
+modelpath_nickname <- "A_2023_10_8pars"
+load4MS("diy2inf_simuls/Harmonia/A_2023_10_8pars/saves4Rmd.rda", verbose=TRUE)
+load4MS("diy2inf_simuls/Harmonia/A_2023_10_8pars/summaries_list.1_200.v2.1.203.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+
+```
+
+#### Table
+```{r TableA8pars}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inms,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".SI.ltx"))
+}
+```
+#### Figure ECDFs
+
+```{r FigureA8code, fig.width = 7, fig.height = 2.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
+            which.p="basicLRT", xsep=0.3,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".pdf"))
+```
+
+```{r FigureA8pars, fig.width = 7, fig.height = 2.5}
+print(myplot)
+```
+### Alternative sampling
+
+```{r A8parsaltsampling}
+modelpath_nickname <- "A_2023_10_8pars"
+load4MS("diy2inf_simuls/Harmonia/A_2023_10_8pars/saves4Rmd.rda", verbose=TRUE)
+load4MS("diy2inf_simuls/Harmonia/A_2023_10_8pars/summaries_list.altsampling.1_200.v2.1.203.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+
+```
+
+#### Table
+```{r TableA8parsaltsampling}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inms,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".altsampling.SI.ltx"))
+}
+```
+
+## Third set of parameter values
+### Base simulations
+```{r C8pars}
+modelpath_nickname <- "C_axy_8pars"
+load4MS("diy2inf_simuls/Harmonia/C_axy_8pars/saves4Rmd.rda", verbose=TRUE)
+load4MS("diy2inf_simuls/Harmonia/C_axy_8pars/summaries_list.1_200.v2.1.203.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+
+```
+
+#### Table
+```{r TableC8pars}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inms,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".SI.ltx"))
+}
+```
+
+### Compare inferences of `logTh4`
+```{r C8Th4pars}
+modelpath_nickname <- "C_axy_8pars_logTh4"
+load4MS("diy2inf_simuls/Harmonia/C_axy_8pars_logTh4/saves4Rmd.rda", verbose=TRUE)
+load4MS("diy2inf_simuls/Harmonia/C_axy_8pars_logTh4/S_obs_table.rda", verbose=TRUE) # for par.grid
+load4MS("diy2inf_simuls/Harmonia/C_axy_8pars_logTh4/summaries_list.1_200.v2.1.203.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, 
+                         par.grid=S_obs_table_info$par.grid, plot.=plot.)
+```
+
+#### Table
+```{r TableC8Th4pars}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inms,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".SI.ltx"))
+}
+```
+
+#### Box plot
+```{r boxpC, fig.width = 7, fig.height = 7}
+load4MS("diy2inf_simuls/Harmonia/C_axy_8pars_logTh4/S_obs_table.rda", verbose=TRUE) # for par.grid
+# for (parm in names(LOWER)) {
+  parm <- "logTh4"
+  parmpm <- attr(TeX(par2ltx(parm)),"latex")
+  xy_lims <- c(LOWER[parm],UPPER[parm])
+  
+  tib <- data.frame(ABCRF=df_extract(ecdfs_df,c("abcrf","logTh4","expectation"))[,1],
+                    SMLE=df_extract(ecdfs_df,c("MSL","MSLE","logTh4")))
+  tib <- tidyr::pivot_longer(tib,seq(ncol(tib)),names_to="estimator")
+  tib$estimator <- factor(tib$estimator)
+  unique_x <- unique(S_obs_table_info$par.grid[,parm])
+  tib$DGP <- signif(unique_x,3)[gl(10,40)]
+      
+  # udf <- data.frame(ux=unique_x,uy=unique_x)
+                          
+  xyplot <- ggplot(tib, aes(x=DGP, # continuous here
+                            y=value, 
+                            group=interaction(DGP,estimator),
+                            fill=estimator)
+                  ) + geom_boxplot(width=0.15) + theme_classic() + 
+    coord_fixed() + # to control the proportions of the rendered plot
+    labs(x=TeX(paste("Data-generating ",parmpm," value")) , 
+         y=TeX(paste(parmpm," estimates"))) +
+    theme(
+      axis.title.y =  element_text(angle = 90,size=16),
+      axis.title.x =  element_text(, size=16),
+      axis.ticks.y = element_line(),
+      axis.line.y = element_line(),
+      axis.text.y = element_text()
+    ) + 
+    scale_y_continuous(limits=c(-2,1), expand=expansion(add=c(0,0)) )  +
+    scale_x_continuous(breaks=prettyround(unique_x,), expand=expansion(add=c(3/11,3/11))) +
+    geom_abline(slope=1,intercept = 0,col="grey") +
+    geom_hline(yintercept=-0.5, col="blue") + 
+    annotate("text", x = 0.2, y = -0.4, label = "prior mean", size=5, col="blue")
+      
+  print(xyplot)
+  ggsave(filename=paste0(MSdir,"boxp_",modelpath_nickname,".pdf"))
+# }
+
+```
+
+
+
+# Human admixture scenario
+
+## 7-parameter version with default controls
+### Base simulations
+
+```{r N7from17}
+modelpath_nickname <- "N_7from17"
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/summaries_list.1_400.v2.1.196.3.rda") # first 200 from v2.187.1
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+```
+#### Table
+```{r TableN7}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inmain,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".ltx"))
+}
+{ # used later
+
+  texcode <- lapply(perf_summs, vec2tex, retained=inms,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode5K <- paste(" --- & 5000 &", texcode)
+}
+```
+
+```{r FigureN7, fig.width = 7, fig.height = 2.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
+            which.p="basicLRT", xsep=0.3,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".pdf"))
+```
+
+```{r Figure3gg, fig.width = 7, fig.height = 2.5}
+print(myplot)
+```
+
+```{r FigureN7rawboocode, fig.width = 7, fig.height = 2.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
+            which.p="rawBootLRT", xsep=0.3,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".rawboot.pdf"))
+```
+
+```{r FigureN7rawboo, fig.width = 7, fig.height = 2.5}
+print(myplot)
+
+```
+### Larger datasets (10000 SNPs)
+```{r Human7SNP10K}
+which.p <- "basicLRT"
+modelpath_nickname <- "Q_7from17"
+load4MS("diy2inf_simuls/admixtOutOfA/Q_7from17/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/admixtOutOfA/Q_7from17/summaries_list.1_200.v2.1.196.3.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+```
+
+#### Table
+```{r Table5K10K}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inms,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- texcode10K <- paste(partexcode,"& 10000 & ", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".SI.ltx"))
+  texcode5K10K <- c(texcode10K,texcode5K) # using textcode5K from a previous chunk
+  texcode5K10K <- texcode5K10K[as.integer(gl(7,2))+c(0,7)]
+  writeLines(texcode5K10K, con=paste0(MSdir,"table", paste0(modelpath_nickname,"vs5K"),".SI.ltx"))
+
+}
+
+
+```
+### Effect of iterative workflow on parameter exploration
+
+```{r logLexploration, fig.width = 4, fig.height = 4}
+modelpath_nickname <- "N_7from17"
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/saves4Rmd.rda", verbose=TRUE)
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/saved_fits_2.1.187.1/upsliks_1.rda", verbose=TRUE)
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/reftable_abcrf.rda")
+
+slik <- upsliks$"20K"
+pred_reft_slik <- predict(slik, newdata=slik$logLs[,names(LOWER)], which="safe")
+pred_reft_abcrf <- predict(slik, newdata=reftable_abcrf_final[,names(LOWER)], which="safe")
+
+focalpar <- "log1p.t23."
+tib <- data.frame(par=c(reftable_abcrf_final[[focalpar]],
+                        slik$logLs[[focalpar]]),
+                  logl=c(pred_reft_abcrf, pred_reft_slik),
+                  cut=cut(c(rep(0, 20000), slik$logLs$cumul_iter),
+                          breaks = c(-0.5,0.5,10.5,Inf)))
+xyplot <- ggplot(tib, aes(x=par, # continuous here
+                          y=logl,
+                          color=cut)) + 
+  geom_point(size=0.1) + theme_classic() + 
+  # coord_fixed() + # to control the proportions of the rendered plot
+  labs(x=TeX(par2ltx(focalpar)) , 
+       y="logL") +
+  theme(
+    legend.title=element_blank(),
+    legend.position.inside = c(0.7, 0.2),
+    axis.title.y =  element_text(angle = 90,size=16),
+    axis.title.x =  element_text(, size=16),
+    axis.ticks.y = element_line(),
+    axis.line.y = element_line(),
+    axis.text.y = element_text(),
+    panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
+  ) + scale_color_manual(values=c('black','#E69F00', '#56B4E9'),
+                         labels = c("ABCRF", "SL, iter 1-10","SL, iter > 10")) +
+  guides(color = guide_legend(override.aes = list(size = 2),
+                              position = "inside"))
+# http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/#a-colorblind-friendly-palette
+
+print(xyplot)
+ggsave(filename=paste0(MSdir,"logLexplo_t23.pdf"))
+  
+focalpar <- "Nbn34"
+tib <- data.frame(par=c(reftable_abcrf_final[[focalpar]],
+                        slik$logLs[[focalpar]]),
+                  logl=c(pred_reft_abcrf, pred_reft_slik),
+                  cut=cut(c(rep(0, 20000), slik$logLs$cumul_iter),
+                          breaks = c(-0.5,0.5,10.5,Inf)))
+xyplot <- ggplot(tib, aes(x=par, # continuous here
+                          y=logl,
+                          color=cut)) + 
+  geom_point(size=0.1) + theme_classic() + 
+  # coord_fixed() + # to control the proportions of the rendered plot
+  labs(x=TeX(par2ltx(focalpar)) , 
+       y="logL", color="") +
+  theme(
+    legend.title=element_blank(),
+    legend.position.inside = c(0.7, 0.2),
+    axis.title.y =  element_text(angle = 90,size=16),
+    axis.title.x =  element_text(, size=16),
+    axis.ticks.y = element_line(),
+    axis.line.y = element_line(),
+    axis.text.y = element_text(),
+    panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
+  ) + scale_color_manual(values=c('black','#E69F00', '#56B4E9'),
+                         labels = c("ABCRF", "SL, iter 1-10","ST, iter > 10")) +
+  guides(color = guide_legend(override.aes = list(size = 2),
+                              position = "inside"))
+
+print(xyplot)
+ggsave(filename=paste0(MSdir,"logLexplo_Nbn34.pdf"))
+```
+
+### Inferences by  MAFs
+
+#### MAFs on final reference tables only
+
+
+```{r comparMAFs}
+modelpath_nickname <- "N_7from17_final_MAF"
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17_final_MAF/saves4Rmd.rda", verbose=TRUE)
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17_final_MAF/summaries_list.1_200.v2.1.194.1.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_PSM19 <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_PSM19, DGparlist = scaDGparlist, plot.=FALSE)
+texcodedef <- lapply(perf_summs, vec2tex, retained=inmain,
+                    bias_pos=NULL, RMSE_pos=NULL)
+texcodedef <- unlist(texcodedef)
+#
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17_final_MAF/summaries_list.1_200.zukocontrols.v2.1.196.3.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_zuko <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_zuko, DGparlist = scaDGparlist, plot.=FALSE)
+texcodealt <- lapply(perf_summs, vec2tex, retained=inmain,
+                    bias_pos=NULL, RMSE_pos=NULL)
+texcodealt <- unlist(texcodealt)
+texcode <- paste(gsub("\\\\ ", "& ",texcodedef, fixed=TRUE),texcodealt)
+partexcode <- sapply(names(texcodedef), par2ltx )
+texcode <- paste(partexcode,"&", texcode)
+writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".compar.ltx"))
+```
+(there is a glitch because of lacking `train_times` information for the first twenty replicates in `ecdfs_PSM19` but this has no bearing on the results).
+
+Figure with PSM19 controls:
+```{r Figure3MAFcode, fig.width = 7, fig.height = 2.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_PSM19, modelpath_nickname,
+            which.p="basicLRT", xsep=0.3,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".pdf"))
+```
+
+```{r Figure3MAF, fig.width = 7, fig.height = 2.5}
+print(myplot)
+
+```
+Figure with zuko-like controls:
+```{r Figure3MAFcodezuko, fig.width = 7, fig.height = 2.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_zuko, modelpath_nickname,
+            which.p="basicLRT", xsep=0.3,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".zuko.pdf"))
+```
+
+```{r Figure3MAFzuko, fig.width = 7, fig.height = 2.5}
+print(myplot)
+```
+
+### Alternative sampling function
+```{r N7from17altsampling}
+modelpath_nickname <- "N_7from17"
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+# All inferences with v .203
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/summaries_list.altsampling.1_400.v2.1.203.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inmain,
+                    bias_pos=NULL, RMSE_pos=NULL)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".altsampling.ltx"))
+}
+```
+#### Comparisons on reference tables of 6000 samples
+To perform these anlyses, make a local modification of the `max_table_size` in 
+the `generic_workflow.R` script.
+```{r N7from17samplings6K}
+modelpath_nickname <- "N_7from17"
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/summaries_list.6K.1_400.v2.1.203.rda")
+lnames <- names(summaries_list) # defective case
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=FALSE)
+texcodedef <- lapply(perf_summs, vec2tex, retained=c("bias.MSLE","RMSE.MSLE","cvrg.basicP"),
+                    bias_pos=NULL, RMSE_pos=NULL)
+texcodedef <- unlist(texcodedef)
+#
+load4MS("diy2inf_simuls/admixtOutOfA/altsampling/N_7from17/summaries_list.6K.1_400.v2.1.203.rda")
+lnames <- names(summaries_list) # defective case
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name) 
+perf_summs_alt <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=FALSE)
+texcodealt <- lapply(perf_summs_alt, vec2tex, retained=c("bias.MSLE","RMSE.MSLE","cvrg.basicP"),
+                    bias_pos=NULL, RMSE_pos=NULL)
+texcodealt <- unlist(texcodealt)
+texcode <- paste(gsub("\\\\ ", "& ",texcodedef, fixed=TRUE),texcodealt)
+partexcode <- sapply(names(texcodedef), par2ltx )
+texcode <- paste(partexcode,"&", texcode)
+writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".samplings6K.ltx"))
+```
+
+### Synthetic reference table
+
+```{r N7from17synth}
+modelpath_nickname <- "N_7from17"
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/synthetic/summaries_list.1_200.v2.1.196.3.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+```
+
+#### Table
+```{r TableN7synth}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inmain,
+                    bias_pos=NULL, RMSE_pos=NULL)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".synthetic.200.ltx"))
+}
+
+```
+#### Figure ECDFs
+
+```{r FigureN7synth, fig.width = 7, fig.height = 2.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
+            which.p="basicLRT", xsep=0.3,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".synthetic.200.pdf"))
+```
+
+```{r Figure3ggsynth, fig.width = 7, fig.height = 2.5}
+print(myplot)
+```
+
+## 13-parameter version
+
+### With composite bottleneck parameters
+
+```{r O13}
+modelpath_nickname <- "O_13from17"
+load4MS("diy2inf_simuls/admixtOutOfA/O_13from17/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/admixtOutOfA/O_13from17/summaries_list.1_400.v2.1.196.3-203.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+#perf_summs <- ad_hoc_fn(ecdfs_df[-c(1,100,34,13),], DGparlist = scaDGparlist, plot.=plot.)
+perf_summs <- perf_summs_38K <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+sub_perf_summs_38K <- ad_hoc_fn(ecdfs_df[1:200,], DGparlist = scaDGparlist, plot.=plot.)
+```
+
+#### Table default controls
+```{r TableO13}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inmain,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".ltx"))
+}
+```
+
+```{r FigureO13code, fig.width = 7, fig.height = 1.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
+            which.p="basicLRT", xsep=0.35,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".pdf"))
+```
+
+```{r FigureO13, fig.width = 7, fig.height = 1.5}
+print(myplot)
+
+```
+
+#### With larger reference table
+```{r O13K50}
+modelpath_nickname <- "O_13from17"
+load4MS("diy2inf_simuls/admixtOutOfA/O_13from17/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/admixtOutOfA/O_13from17/summaries_list.50K.1_200.v2.1.203.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+#perf_summs <- ad_hoc_fn(ecdfs_df[-c(1,100,34,13),], DGparlist = scaDGparlist, plot.=plot.)
+perf_summs <- perf_summs_50K <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+```
+
+##### Table
+```{r TableO13K50}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inms,
+                    bias_pos=NULL, RMSE_pos=NULL)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".50K.SI.ltx"))
+}
+```
+
+#### Check ABC-RF inference of $\log(N_1)$
+```{r boxp0logN1, fig.width = 7, fig.height = 7}
+  load4MS("diy2inf_simuls/admixtOutOfA/O_13from17_logN1/S_obs_table.rda", verbose=TRUE) # for S_obs_table_info
+  load4MS("diy2inf_simuls/admixtOutOfA/O_13from17_logN1/summaries_list.rda")
+  lnames <- names(summaries_list)
+  (full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+  assign(full_df_name, do.call(rbind, summaries_list))
+  ecdfs_df <- get(full_df_name)
+
+  focalpar <- "log.N1."
+  parmpm <- attr(TeX(par2ltx(focalpar)),"latex")
+  xy_lims <- c(LOWER[focalpar],UPPER[focalpar])
+  
+  tib <- data.frame(ABCRF=df_extract(ecdfs_df,c("abcrf",focalpar,"expectation"))[,1])
+  tib <- tidyr::pivot_longer(tib,seq(1),names_to="estimator")
+  tib$estimator <- factor(tib$estimator)
+  unique_x <- unique(S_obs_table_info$par.grid[,focalpar])
+  tib$DGP <- signif(unique_x,3)[gl(10,20)]
+      
+  udf <- data.frame(ux=unique_x,uy=unique_x)
+                          
+  xrange <- range(c(unique_x))
+  xrange <- xrange + (xrange[2]-xrange[1])*c(-1,1)/11
+                          
+xyplot <- ggplot(tib, aes(x=DGP, # continuous here
+                          y=value, 
+                          group=DGP,
+                          col=estimator)
+) + geom_boxplot(show.legend = FALSE, color="black") +  theme_classic() + 
+  coord_fixed() + # to control the proportions of the rendered plot
+  labs(x=TeX(paste("Data-generating ",parmpm," value")) , 
+       y=TeX(paste(parmpm," estimates"))) +
+  theme(
+    axis.title.y =  element_text(angle = 90,size=16),
+    axis.title.x =  element_text(, size=16),
+    axis.ticks.y = element_line(),
+    axis.line.y = element_line(),
+    axis.text.y = element_text()
+  ) + 
+  scale_x_continuous(limits=xrange, breaks=prettyround(unique_x,-1), expand=expansion(add=c(0,0))) +
+  scale_y_continuous(limits=range(c(xrange, tib$value)), expand=expansion(add=c(0,0)) )  +
+  geom_abline(slope=1,intercept = 0,col="grey") +
+  geom_hline(yintercept=(LOWER+UPPER)[focalpar]/2, col="blue") + 
+  annotate("text", x = (0.1*min(unique_x)+0.9*max(unique_x)), 
+                   y = (LOWER+UPPER)[focalpar]/2-0.02*(UPPER-LOWER)[focalpar], 
+           label = "prior mean", size=5, col="blue")
+
+
+print(xyplot)
+ggsave(filename=paste0(MSdir,"boxp_","O_13from17_logN1",".pdf"))
+```
+Summary-likelihood inferences were not run on these datasets.
+
+
+#### Check ABC-RF inference of `log.Nbn34.`
+```{r boxp0logNbn34, fig.width = 7, fig.height = 7}
+  load4MS("diy2inf_simuls/admixtOutOfA/O_13from17_logNbn34/S_obs_table.rda", verbose=TRUE) # for S_obs_table_info
+  load4MS("diy2inf_simuls/admixtOutOfA/O_13from17_logNbn34/summaries_list.rda")
+  lnames <- names(summaries_list)
+  (full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+  assign(full_df_name, do.call(rbind, summaries_list))
+  ecdfs_df <- get(full_df_name)
+
+  focalpar <- "log.Nbn34."
+  parmpm <- attr(TeX(par2ltx(focalpar)),"latex")
+  xy_lims <- c(LOWER[focalpar],UPPER[focalpar])
+  
+  tib <- data.frame(ABCRF=df_extract(ecdfs_df,c("abcrf",focalpar,"expectation"))[,1])
+  tib <- tidyr::pivot_longer(tib,seq(1),names_to="estimator")
+  tib$estimator <- factor(tib$estimator)
+  unique_x <- unique(S_obs_table_info$par.grid[,focalpar])
+  tib$DGP <- signif(unique_x,3)[gl(10,20)]
+      
+  udf <- data.frame(ux=unique_x,uy=unique_x)
+  
+  xrange <- range(c(unique_x))
+  xrange <- xrange + (xrange[2]-xrange[1])*c(-1,1)/11
+                          
+xyplot <- ggplot(tib, aes(x=DGP, # continuous here
+                          y=value, 
+                          group=DGP,
+                          col=estimator)
+) + geom_boxplot(show.legend = FALSE, color="black") +  theme_classic() + 
+  coord_fixed() + # to control the proportions of the rendered plot
+  labs(x=TeX(paste("Data-generating ",parmpm," value")) , 
+       y=TeX(paste(parmpm," estimates"))) +
+  theme(
+    axis.title.y =  element_text(angle = 90,size=16),
+    axis.title.x =  element_text(, size=16),
+    axis.ticks.y = element_line(),
+    axis.line.y = element_line(),
+    axis.text.y = element_text()
+  ) + 
+  scale_x_continuous(limits=xrange, breaks=prettyround(unique_x,-1), expand=expansion(add=c(0,0))) +
+  scale_y_continuous(limits=range(c(xrange, tib$value)), expand=expansion(add=c(0,0)) )  +
+  geom_abline(slope=1,intercept = 0,col="grey") +
+  geom_hline(yintercept=(LOWER+UPPER)[focalpar]/2, col="black") + 
+  annotate("text", x = (0.1*min(unique_x)+0.9*max(unique_x)), 
+                   y = (LOWER+UPPER)[focalpar]/2+0.02*(UPPER-LOWER)[focalpar], 
+           label = "mid-range", size=5, col="black")+ 
+  geom_hline(yintercept=1.6150559, col="blue") + 
+  annotate("text", x = (0.1*min(unique_x)+0.9*max(unique_x)), 
+                   y = 1.6150559-0.02*(UPPER-LOWER)[focalpar], # from the reftable_abcrf 
+           label = "prior mean", size=5, col="blue")
+
+print(xyplot)
+ggsave(filename=paste0(MSdir,"boxp_","O_13from17_logNbn34",".pdf"))
+```
+
+### Diagnosing the distribution of LRTs for $d_3/N_{\textrm{bn3}}$
+#### Base simulations for 4-parameter sub-model
+```{r P4from17}
+modelpath_nickname <- "P_4from17"
+load4MS("diy2inf_simuls/admixtOutOfA/P_4from17/saves4Rmd.rda", verbose=TRUE)
+load4MS("diy2inf_simuls/admixtOutOfA/P_4from17/summaries_list.1_500.v2.1.196.3.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+```
+
+##### Table 
+```{r TableP4from17}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inms[c(1,4,7,8,9)],
+                    bias_pos=NULL, RMSE_pos=NULL)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".adhoc.SI.ltx"))
+}
+```
+
+##### Figure ECDFs for for `d3/Nbn3` in 4-parameter sub-model
+(This generates warnings)
+```{r P4d3_Nbn3, fig.width = 4, fig.height = 4}
+ # special version for diagnosing d3_Nbn3 LRTs:
+# This requires canonize() so reloading all defs for P_4from17
+    focalpar <- "d3_Nbn3"
+    # Extract solution vectors:
+    profsols <- df_extract(ecdfs_df,c("SLRTs",focalpar), finalFUN=function(v) attr(v$chi2_LR,"solution"))
+    # Colors: implied d3 from tested h0s$d3_Nbn3 and d3_Nbn3-profile value of Nbn3:
+    prof_d3s <- apply(profsols, 1L, function(v) {scaDGparlist$d3_Nbn3* 10^v["log.Nbn3."]})
+    d3_cuts <- cut(prof_d3s,breaks = c(-Inf,0.5,1.5,2.5,5.5,10.5,20.5,Inf)) 
+    MLE_d3s <- apply(df_extract(ecdfs_df,c("MSL","MSLE")),1, 
+                     function(v) {v["d3_Nbn3"]*10^v["log.Nbn3."]})
+    high_MLE_d3s <- (MLE_d3s>32.73206)
+    sum(high_MLE_d3s) # 189 over 500
+    LRp <- df_extract(ecdfs_df,c("SLRTs",focalpar,"basicLRT"))$p_value
+    lo_LRp <- LRp[ ! high_MLE_d3s]
+    hi_LRp <- c(LRp[high_MLE_d3s], rep(NA, 122))
+    bootp <- df_extract(ecdfs_df,c("SLRTs",focalpar,"rawBootLRT"))$p_value
+    lo_bootp <- bootp[ ! high_MLE_d3s]
+    hi_bootp <- c(bootp[high_MLE_d3s], rep(NA, 122))
+    tib <- cbind(lo_LRp=lo_LRp, hi_LRp=hi_LRp, lo_bootp=lo_bootp, hi_bootp=hi_bootp)
+  nr <- nrow(tib)
+  steps <- 5L
+  npar <- 4L
+  xsep <- 0.3
+  ysep <- 1/steps
+  ann_size <- 4
+  tib  <- as.data.frame(tib+(as.numeric(gl(npar+1L,nr))-1)[-(623:933)]*xsep)
+  tib   <- tidyr::pivot_longer(tib,seq(npar),names_to="parameter")
+  tib$parameter <- factor(tib$parameter)
+  
+  texlabels <- c("low","high","low","high")
+
+  dev.new(width=10, height=2.5)
+  
+  xfix <- c(1,2,4,5) # for ablines
+  
+  myplot <- ggplot(tib, aes(value, col=parameter))
+  for (jt in seq(4)) {
+    it <- c(1,2,4,5)[jt]
+    kt <- c(1L,2L,1L,2L)[jt]
+    xshift <- c(0,0,1.5,1.5)[jt]
+    idx <- (jt-1) %% 2L
+
+    xy   <- c( x = 0.9+(idx)*(xsep-ysep)+xshift*2L*xsep, 
+               y = 0.9-(idx)*ysep)
+    myplot <- myplot + 
+      geom_abline(slope=1,intercept=-(it-1)*xsep, col="grey") +
+      annotate("text", x = xy["x"], y = xy["y"], 
+               label = texlabels[[jt]], size=ann_size)
+  }
+  
+   myplot <- myplot + annotate("text", x = 1, y = 1.1, 
+               label = "LRT", size=ann_size) + annotate("text", x = 2, y = 1.1, 
+               label = "bootstrap", size=ann_size)
+   
+  myplot <- myplot + stat_ecdf(geom="step") + theme_void() + 
+    coord_fixed() + 
+    labs(y="CDF of p-values\n") +
+    theme(
+      axis.title.y =  element_text(angle = 90),
+      axis.ticks.y = element_line(),
+      axis.line.y = element_line(),
+      axis.text.y = element_text(),
+      legend.position="none" 
+    ) +
+    # scale_color_discrete(labels=texlabels) +
+    scale_y_continuous(breaks=seq(0,1,0.25)) +
+    scale_x_continuous(expand=expansion(mult=c(0.05,0.05)))
+  
+  ggsave(filename=paste0(MSdir,"ecdfs_d3_Nbn3_P_4from17.pdf"))
+  print(myplot)
+
+```
+
+
+#### 2D profile
+This was produced from the second of the 200 simulated datasets for the 13-parameter case with composite parameters, refitted in a 4-parameter sub-model. The likelihood surface is here inferred using a reference table of 22000 samples. The horizontal ridge near `log.Nbn3.`=0.7 happens for $d_3=2$ and $N_{\textrm{bn3}}=5$ as `log.Nbn3.` and `d3_Nbn3` are drawn as continuous variables but the simulation software rounds times and population sizes to integer values. The intermediate reference table of 11000 samples already provided the same pattern. The following code may be used to reproduce the figure
+```{r prof2D_b3, eval=FALSE}
+load(file="diy2inf_simuls/admixtOutOfA/P_4from17/saved_info_for_2Dprofile/slik.22K.rda")
+# Slow!:
+Infusion::plot2Dprof(slik22, list("d3_Nbn3","log.Nbn3."), gridSteps = 65L,
+                  color.palette=function(n){
+                    adjustcolor(Infusion:::.viridisOpts(option="H", n, begin=0.1))
+                    }
+                  )
+```
+but the long part of the computation was saved so that 
+```{r prof2D_b3saved, fig.width = 6, fig.height = 6}
+load4MS(file="diy2inf_simuls/admixtOutOfA/P_4from17/saved_info_for_2Dprofile/slik.22K.rda")
+load4MS(file="diy2inf_simuls/admixtOutOfA/P_4from17/saved_info_for_2Dprofile/profiles_info.rda")
+pdf("MS/2Dprofile_b3_P4from17.22K.pdf",width = 5,height = 6.5) # not controlled by the chunk args args...
+Infusion::plot2Dprof(profiles_info$fit_info, 
+           pars=list("d3_Nbn3","log.Nbn3."), 
+           profiles = profiles_info$profiles, 
+           xylabs=c(d3_Nbn3=latex2exp::TeX(par2ltx('d3_Nbn3')),
+                    log.Nbn3.=latex2exp::TeX(par2ltx("log.Nbn3."))))
+dev.off()
+```
+### Without composite bottleneck parameters
+
+```{r B13}
+modelpath_nickname <- "B_13from17"
+load4MS("diy2inf_simuls/admixtOutOfA/B_13from17/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/admixtOutOfA/B_13from17/summaries_list.1_200.v2.1.196.3.rda") # fits v2.1.187.1
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+```
+
+#### Table 
+```{r TableB13}
+{
+  texcode <- lapply(perf_summs, vec2tex, retained=inms,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".SI.ltx"))
+}
+```
+#### Figure ECDFs
+
+
+```{r FigureB13code, fig.width = 7, fig.height = 1.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
+            which.p="basicLRT", xsep=0.35,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".pdf"))
+```
+
+```{r FigureB13, fig.width = 7, fig.height = 1.5}
+print(myplot)
+
+```
+
+
+# Toy example: multivariate Normal distribution
+## Fully identifiable model
+```{r fullidentif}
+modelpath_nickname <- "MVNcovmat"
+load4MS("toyTests/MVNcovmat/saves4Rmd.rda", verbose=TRUE)
+scaDGparlist <- as.list(cholDGPv)
+load4MS("toyTests/MVNcovmat/summaries_list.1_400.v2.1.203.rda") # with bootstraps
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+
+```
+```{r tableMVN_TFI}
+  perf_summs <- perf_summs_TFI <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+  texcode <- lapply(perf_summs, vec2tex, retained=inmain,
+                    bias_pos=NULL, RMSE_pos=NULL)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".ltx"))
+  cvrg.bootCI.TFI <- do.call(rbind, perf_summs)[,"cvrg.bartlettP"]
+```
+
+
+```{r FigureTFIcode, fig.width = 7, fig.height = 1.5}
+myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
+            which.p="basicLRT", xsep=0.35,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".pdf")
+            )
+```
+
+```{r FigureTFI, fig.width = 7, fig.height = 1.5}
+print(myplot)
+```
+
+## Non-identifiable parameters
+```{r nonidentif}
+modelpath_nickname <- "MVNcovmat_identif"
+load4MS("toyTests/MVNcovmat_identif/saves4Rmd.rda", verbose=TRUE)
+scaDGparlist <- as.list(cholDGPv)
+load4MS("toyTests/MVNcovmat_identif/summaries_list.1_400.v2.1.203.rda")
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+### was needed for summaries_list with non-standard format:
+#ori <- ecdfs_df
+#foo <- lapply(seq(200), function(it) list(MSL=list(MSLE=ori[it,"MSLE"][[1]],
+#                                                   hessian=NA), SLRTs=ori[it,"SLRTs"][[1]]))
+#ecdfs_df <- do.call(rbind,foo)
+```
+```{r tableMVN_NI}
+  perf_summs <- perf_summs_NI <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+  texcode <- lapply(perf_summs, vec2tex, retained=inmain,
+                    bias_pos=NULL, RMSE_pos=NULL)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode[c(1,3,6,10,15)], con=paste0(MSdir,"table",modelpath_nickname,".ltx"))
+  cvrg.bootCI.NI <- do.call(rbind, perf_summs)[,"cvrg.bartlettP"]
+
+```
+```{r FigureNIcode, fig.width = 7, fig.height = 1.5}
+loccol <- rep("#00BFFF",15)
+loccol[c(1,3,6,10,15)] <- "black"
+
+myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
+            which.p="basicLRT", xsep=0.35, scale_col=loccol,
+            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".pdf"))
+```
+
+```{r FigureNI, fig.width = 7, fig.height = 1.5}
+print(myplot)
+```
+
+
+
+# Miscellanea
+
+## MAF timings
+... on PC obtained from twenty replicates. Next 180 replicates were computed on `genotoul` cluster:
+```{r eval=FALSE}
+if (FALSE) { # The fits are not included in the Supplementary Information 
+  # timings on PC
+  tt <- sapply(1:20, function(it) {
+    load(paste0("../N_7from17_final_MAF/upsliks_",it,".rda"))
+    attr(upsliks$"20K"$conddens,"train_time")
+  })
+  mean(tt) # 448.545
+  
+  # on genotoul cluster: 
+  ttt <- df_extract(ecdfs_df[-(1:20),], "train_times")
+  colMeans(ttt) # 561.4467 for conddens (giving likelihood)
+}
+```
+Similar computation for "alternative" MAF controls on IMAG cluster: 551.63 s; and for "alternative" but with a learning rate of `1e-4`: 1244.65 s 
