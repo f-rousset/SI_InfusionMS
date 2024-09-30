@@ -8,7 +8,7 @@
 { #############      General initialization
   {
     library("Infusion")
-    if (packageVersion("Infusion")<"2.1.193") stop("Version 2.1.193 or higher of Infusion is required.")
+    if (packageVersion("Infusion")<"2.1.203") stop("Version 2.1.203 or higher of Infusion is required.")
     if (packageVersion("spaMM")<"4.4.5") warning("Version 4.4.5 or higher of spaMM is strongly advised.")
     # Also required 
     #   Rmixmod (only 'suggested' by Infusion but effectively required in all cases),
