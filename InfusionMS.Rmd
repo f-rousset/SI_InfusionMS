@@ -1,15 +1,17 @@
 ---
-title: "Assembling figures, tables and SI for Infusion MS"
+title: "Assembling figures, tables and SI for summary-likelihood ms"
 output: 
   html_document:
     toc: true
     toc_depth: 3
 date: "`r format(Sys.time(), '%Y/%m/%d')`"
+author: F. Rousset
 ---
 
-# Setup and definitions
+This script has been used to generate the Figures and Tables for the manuscript, from the saved raw simulation results. The latter results were produced with various versions of the `Infusion` package, with minimal version 2.1.186.2 (implementing the ultimately retained values of control parameters of the iterative workflow)  for the fits, and minimal version 2.1.196 (implementing a fix for maximization issues of the likelihood surfaces in the bootstrap procedures) for the post-fit analyses. These features are available in version 2.2.0 on CRAN. A distinct package, `mafR`, also available on CRAN, has been written to interface `python` software used for training Masked Autoregressive Flows.  
 
-This script has been used to generate the Figures and Tables for the manuscript, from the saved raw simulation results. The latter results were produced with various versions of the `Infusion` package, with minimal version 2.1.186.2 (implementing the ultimately retained values of control parameters of the iterative workflow)  for the fits, and minimal version 2.1.196 (implementing a fix for maximization issues with local maxima of the likelihood surfaces in the bootstrap procedures) for the post-fit analyses.
+
+# Setup and definitions
 
 <!-- See https://stackoverflow.com/a/52433616 -->
 ```{r setup, cache = FALSE, include=FALSE}
@@ -243,7 +245,7 @@ print(myplot)
 ```
 
 
-### Compare inferences of `logTh4`
+### Compare inferences of $\log(N_4\bar{\mu})$
 ```{r D8Th4pars}
 modelpath_nickname <- "D_axy_8pars_logTh4"
 load4MS("diy2inf_simuls/Harmonia/D_axy_8pars_logTh4/saves4Rmd.rda", verbose=TRUE)
@@ -402,7 +404,7 @@ perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
 }
 ```
 
-### Compare inferences of `logTh4`
+### Compare inferences of $\log(N_4\bar{\mu})$
 ```{r C8Th4pars}
 modelpath_nickname <- "C_axy_8pars_logTh4"
 load4MS("diy2inf_simuls/Harmonia/C_axy_8pars_logTh4/saves4Rmd.rda", verbose=TRUE)
