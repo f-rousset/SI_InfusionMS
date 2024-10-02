@@ -154,7 +154,7 @@
       # LOWER and UPPER may contain composite parameters, which should be handled by reparametrize.
       # reparamHeader specifies times as with t2md3 etc. It could probably use some + and -
       # but was originally developed because of doubts about correct implementation 
-      # of these operations in diyabc. So it tends to contain eg a singel variable t2md3
+      # of these operations in diyabc. So it tends to contain eg a single variable t2md3
       # rather than t2-d3 or t1+t12-d3...
       # templateHeader is a header that may contain + and -, but no DRAW UNTIL. 
       # templateHeader will not be used by diyabc.
@@ -185,7 +185,6 @@
         # I generate a template S_obs in all cases currently, so I need to copy this:
         exe_copied <- file.copy(from=executable, to =jobsubdir)
         file.copy(from="RNG_state_0000.bin", to =jobsubdir)
-        # I generate the S_obs_table whenever absent currently (____F I X M E___), so I need to copy this in all cases:
         # if ( ! (cmdl_resummarize)) {
         if (file.exists("S_obs_table.rda")) {
           file.copy(from="S_obs_table.rda", to =jobsubdir)
@@ -208,21 +207,14 @@
     } else {
       if ( ! file.exists("saved_fits")) cat(crayon::underline("'saved_fits/' subdirectory is missing."))
     }
-    
-    # ! local defs:
-    # (savedir <- "/mnt/c/home/francois/travail/stats/Infusionplus/caseStudies/Harmonia/results/") # WSL
-    # (savedir <- "C:/home/francois/travail/stats/Infusionplus/caseStudies/Harmonia/results/")
-    # ! setwd() to source file location so that next line finds the file:
     (savedir <- thisfilepath) # this makes it the working directory...     with final '/'
-    
-    
-    
+
     cat(crayon::yellow("Working directory is currently "),getwd(),"\n")
     if ( ! file.exists("saved_fits")) cat(crayon::underline("'saved_fits/' subdirectory is missing."))
   }
   
   
-  { # This block is mandatory for finalization onesim_c() and for its final assignments to control.Simulate 
+  { # This block is mandatory for getting onesim_c() and for its final assignments to control.Simulate 
     
     constr_crits <- NULL # may be overwritten below
     if ( length(grep("Harmonia", thisfilepath))) { 
@@ -412,13 +404,11 @@
     
     { # the $caParNames must be the names uses by diyabc in the order assumed by diyabc
       # ideally this info is deduced from the header file, but my generic code does not yet handles all forms of header files
-      # so FIX: ise the result of canonize (using itself-fixed local canonize so that it returns params in the order expected by diyabc)
+      # so FIX: use the result of canonize (using itself-fixed local canonize so that it returns params in the order expected by diyabc)
       (caLOWER <- canonize(scaLOWER)) 
       control.Simulate$caParNames <- names(caLOWER) # allow check of colnames of canonical grid. (=> no repetitive message) ( ! proper ordering)
       caUPPER <- canonize(scaUPPER)
     }
-    
-    
     
     (LOWER <- scaLOWER)  # They have to be the same thing, with different names for different contexts
     UPPER <- scaUPPER
@@ -604,7 +594,7 @@
       if ( length(grep("Harmonia", thisfilepath)) ) { # Ladybird invasion scenario
         if ( 
           length(grep("D_axy_8pars", modelpath_nickname)) # grep() to match "D_axy_8pars_logTh4" too
-        ) { # values of original 'A_2023_10_8pars' simuls, differents from the new A_2023_10_8pars below
+        ) { # values of original 'A_2023_10_8pars' simuls, different from the new A_2023_10_8pars below
           scaDGP <- c(logTh1=0, logTh2=0, logTh3=0, logTh4=0, T1=13, 
                       ar=0.5, logMu=-3, MEANP=0.25) 
         } else if (modelpath_nickname== "A_2023_10_8pars") { # nickname was reused for different parameters
@@ -612,7 +602,7 @@
           scaDGP <- c(logTh1=-0.031, # ML ~posterior. No modif                                   
                       logTh2=-0.84, # Bias opposite from prior mean: confirm further from it      
                       logTh3=0.56, # deficiency of high values                                      
-                      logTh4=-0.88, # indep of ML and seems superefficient: test on 0 (other side of prior mean)                  
+                      logTh4=-0.88, # indep of ML and low variance                   
                       T1=19, # No info: push out of central zone                                  
                       ar=0.5, # deficiency of low values                                         
                       logMu=-2.7, # Post ~ML with negative bias. No obvious thing to test        
@@ -621,14 +611,14 @@
           length(grep("C_axy_8pars", modelpath_nickname)) # grep() to match "C_axy_8pars_logTh4" too
         ) { # as modified from new A_2023_10_8pars
           #                         conclusion   
-          scaDGP <- c(logTh1=-0.031, # RAS
+          scaDGP <- c(logTh1=-0.031, # no specific issue
                       logTh2=-1.5, # small bias away. Not graphical. weird
                       logTh3=0.75, # strong bias. Effect of prior  
-                      logTh4=0, # small bias away from prior. Low variance => low RMSE !
+                      logTh4=0, # small bias away from prior. Low variance => low RMSE. Led to additional simulations in paper
                       T1=9, # in fact this shows there is some info and expected bias of posterior ests 
                       ar=0.2, # confirmed. Commonplace upper bias of posterior ests
-                      logMu=-2.7, # Better seen 'commonplace bias'. *Why the defic. of low p-values?*
-                      MEANP=0.22 # RAS
+                      logMu=-2.7, # Better seen 'commonplace bias'. 
+                      MEANP=0.22 # no specific issue
           ) 
         }
       }  else if ( length(grep("admixtOutOfA", thisfilepath)) ) { # Human admixture scenario
@@ -654,12 +644,12 @@
             c(log.N2.=3.5, t1=6,   log.t12.=2.2, 
               log1p.t23.=1.5,         Nbn34=65, log1p.t34.=3, log.Na.=2.7)
           },
-          "B_13from17" = { 
+          "B_13from17" = { # 13-parameter simulations without composite bottleneck params
             c(log.N1.=3.2, log.N2.=3.5, log.N3.=3.8, log.N4.=3.5, t1=6, ra=0.17, 
               log.t12.=2.2, d3=42,          d4=9,          
               log1p.t23.=1.7, d34=24, log1p.t34.=2.9, log.Na.=2.7) 
           },
-          "O_13from17" = { # reparametrization with dx_Nbnx's
+          "O_13from17" = { # reparametrization with composite bottleneck params dx_Nbnx
             c(log.N1.=4.7, log.N2.=3.4, t1=6, ra=0.21, log.t12.=2.2, d3_Nbn3=0.26, 
               log.Nbn3.=2.1, d4_Nbn4=0.1, log.Nbn4.=2.3, log1p.t23.=1.3, 
               d34_Nbn34=0.44, log.Nbn34.=1.5, log.Na.=2.7)
@@ -699,7 +689,7 @@
 
 
 #################### Precomputations for abcrf workflow;
-# Building the objects takes time, and even simplyloading them may take some time
+# Building the objects takes time, and even simply loading them may take some time
 # Build/load abcrf reftable and provide rf regressions 
 # predict.regAbcrf will need both the full reftable and the projections 
 #  (rf regressions) as distinct objects, so both must be loaded in memory.  
@@ -905,7 +895,7 @@ if (FALSE) { # O_13from17_logNbn34 and O_13from17_logN1
         load("../O_13from17/S_obs_table.rda") # the first 200 samples originally used for P_4from17
         # This also reads the S_obs_table_info for O_13from17 which replaces the local one.
         # S_obs_table_info$LOWER and $UPPER are confusing, they should not be used
-        # The LOWER and UPPER in the .GlobalEnv are always thos deduced from the diyabc headers.
+        # The LOWER and UPPER in the .GlobalEnv are always those deduced from the diyabc headers.
         # => the saves4Rmd.rda elements are not modified and are specific to P_4from17)
         # For safety we remove:
         S_obs_table_info$LOWER <- S_obs_table_info$UPPER <- NULL
