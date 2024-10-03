@@ -7,7 +7,7 @@ subdirectory to a given Table or Figure from the ms.
 
 Scripts that can be used to reproduce the **simulations** are provided in directories
 [`toyTests`](toyTests/) and [`diy2inf_simuls`](diy2inf_simuls/). These directories themselves contain nested 
-subdirectories. Each terminal subsdirectory corresponds to a simulation scenario.
+subdirectories. Each terminal subdirectory corresponds to a simulation scenario.
 Files from parent directories should be copied in a terminal subdirectory in order 
 to reproduce simulations for the corresponding simulation scenario. In particular, 
 the two `generic_workflow.R` files are each a master script file whose execution depends 
