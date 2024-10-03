@@ -1,5 +1,5 @@
 Scripts and results for "Better confidence intervals in simulation-based inference"
-By Rousset, Leblois, Estoup & Marin
+By Rousset, Leblois, Estoup & Marin [available on biorXiv](https://www.biorxiv.org/content/10.1101/2024.09.30.615940v1)
 
 Scripts that can be used to reproduce the simulations are provides in directories
 toyTests/ and diy2inf_simuls/ . These directories themselves contain nested 
