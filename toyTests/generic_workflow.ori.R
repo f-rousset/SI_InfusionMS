@@ -245,8 +245,7 @@ if (ii < NREPL) { # so that setting prev_latest_one to NREPL prevents the creati
     slik_j <- infer_SLik_joint(dsimuls,stat.obs=S_obs,verbose=verboses)
     slik_j <- MSL(slik_j, eval_RMSEs = FALSE, CIs=FALSE)
     for (siz in names(reftable_sizes)) { # ad hoc as sizes does not contain 1K
-      slik_j <- refine(slik_j, eval_RMSEs = FALSE, CIs=FALSE,
-                       verbose=verboses)
+      slik_j <- refine(slik_j, eval_RMSEs = FALSE, CIs=FALSE)
     } 
     t_end <- Sys.time()
     cat(paste0("workflow took ", signif(difftime(t_end,t_begin),4),"s\n"))
@@ -347,10 +346,8 @@ if (ii < NREPL) { # so that setting prev_latest_one to NREPL prevents the creati
                 
                 slik_j <- infer_SLik_joint(dsimuls,stat.obs=S_obs,verbose=verboses)
                 slik_j <- MSL(slik_j, eval_RMSEs = FALSE, CIs=FALSE)
-                for (siz in names(reftable_sizes)) { ## ad hoc as sizes does not contain 1K
-                  ## but (later added) explicit control by ntot is more robust. 
-                  slik_j <- refine(slik_j, ntot=reftable_sizes[siz]-nrow(slik_j$logLs),
-                                   verbose=verboses, eval_RMSEs = FALSE, CIs=FALSE)
+                for (siz in names(reftable_sizes)) { # ad hoc as sizes does not contain 1K
+                  slik_j <- refine(slik_j, eval_RMSEs = FALSE, CIs=FALSE)
                   if (siz %in% names(upsliks)) upsliks[[siz]] <- slik_j
                 } 
                 save(upsliks,file=paste0("upsliks_",ii,".rda"))
@@ -372,17 +369,9 @@ if (ii < NREPL) { # so that setting prev_latest_one to NREPL prevents the creati
               }
             }
             
-            ## refine pre-existing upsliks: prepare slots in the upsliks list
+            # refine pre-existing upsliks: prepare slots in the upsliks list
             slik_siz <- upsliks[[length(upsliks)]]
-            ## Fix: Original script produced reference tables of 42K samples,
-            ## extended to 44K in a second step. 
-            ## Script was then tidied to generate 44K tables in a single step. 
-            ## But next line was wrong, as unsaved reftable sizes became new sizes:
-            # newsizes <- setdiff(names(reftable_sizes), c("2K","14K", names(upsliks)))
-            ## corrected code: 
-            max_in <- max(which(names(reftable_sizes) %in%  names(upsliks)))
-            newsizes <- reftable_sizes[-seq_len(max_in)]
-            ## /Fix
+            newsizes <- setdiff(names(reftable_sizes), c("2K","14K", names(upsliks)))
             supp <- vector("list", length(newsizes))
             names(supp) <- newsizes
             upsliks <- c(upsliks, supp) # add empty elements to be filled by next loop
