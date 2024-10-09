@@ -1,4 +1,4 @@
-Scripts and results for ["Better confidence intervals in simulation-based inference"](https://www.biorxiv.org/content/10.1101/2024.09.30.615940v1)
+### Scripts and results for ["Better confidence intervals in simulation-based inference"](https://www.biorxiv.org/content/10.1101/2024.09.30.615940v1)
 By Rousset, Leblois, Estoup & Marin 
 
 The Rmarkdown file [`Infusion.Rmd`](InfusionMS.Rmd) can be used to generate the **Figures and Tables** 
@@ -20,9 +20,9 @@ code or by the Rmarkdown script.
 
 To run the `Infusion.Rmd` on another computer or directory, there are two directories 
 which need to be specified in the first R chunks of the Rmarkdown file:
-* `correctdir` : the base directory where the files from this git repository are copied.
-* `MSdir` : the directory where figures and tables will be written if the Rmarkdown script is run.
-`correctdir` can easily be changed but the subdirectory architecture of 
+* `correctdir` : the base directory where the files from this git repository are copied. `correctdir` can easily be changed but the subdirectory architecture of 
 the files from the git repository should not be modified.
+* `MSdir` : the directory where figures and tables will be written if the Rmarkdown script is run.
+
   
   
