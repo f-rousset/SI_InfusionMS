@@ -32,7 +32,7 @@
       source(paste0(dir_generic,"Infusion_addl_defs.R"))
       source(paste0(dir_generic,"performance_fns.R")) # these one at least are useful for ricker
       # source(paste0(dir_generic,"my_rstar.R")) #
-      source(paste0(dir_generic,"output_files_manips.R")) 
+      source(paste0(dir_generic,"output_files_manips.R")) # df_extract...
     }
     
     if (on_genotoul) {
@@ -45,6 +45,7 @@
       if (is.null(cmdl_resummarize <- cmdl_args$resummarize)) cmdl_resummarize <- FALSE
       if (is.null(cmdl_fast_reClu <- cmdl_args$fast)) cmdl_fast_reClu <- FALSE 
       if (is.null(cmdl_reproject <- cmdl_args$reproject)) cmdl_reproject <- FALSE
+      if (is.null(cmdl_boot_nsim <- cmdl_args$boot_nsim)) cmdl_boot_nsim <- 199L
       if (cmdl_reproject || cmdl_resummarize) {
         if ( ! is.null(procs_per_job <- cmdl_args$threadNbr) &&
              procs_per_job>1L ) warning("cmdl_args$threadNbr>1L with cmdl_reproject || cmdl_resummarize")
@@ -86,8 +87,9 @@
   }
   
   {
-    
-    DIM <- 5L
+    if (length(grep("MVN6",thisfilepath))) {
+      DIM <- 3L    
+    } else DIM <- 5L
     npar <- DIM*(DIM+1L)/2L
     
     (statnames <-  paste0(
@@ -133,8 +135,9 @@
     { # variables always needed
       # Data-generating parameters cholDGPv
       set.seed(123)
-      DGcovmat <- rWishart(1,df=10,Sigma=diag(DIM))[,,1]
+      DGcovmat <- rWishart(1,df=10,Sigma=diag(5L))[,,1]
       cholDGP <- chol(DGcovmat)
+      cholDGP <- cholDGP[1:DIM,1:DIM]
       cholDGPv <- cholDGP[upper.tri(cholDGP,TRUE)] # 
       (parnames <-  paste0(
         "V",
@@ -154,11 +157,12 @@
       save(S_obs_table, file="S_obs_table.rda")
     }
     
-    if (FALSE) { # variables always needed: recompute or load
+    chk <- try(load("saves4Rmd.rda"))
+    if (inherits(chk,"try-error")) { # variables always needed: recompute or load
       if (FALSE) {
         # a quick look at realistic parameter ranges:
         apply(t(replicate(1000, {
-          rcovmat <- rWishart(1,df=10,Sigma=diag(DIM))[,,1]
+          rcovmat <- rWishart(1,df=10,Sigma=diag(5L))[,,1]
           cholr <- chol(rcovmat)
           cholr[upper.tri(cholr,TRUE)] #
         })),2L,range)
@@ -173,7 +177,7 @@
       UPPER <- UPPER[upper.tri(UPPER,TRUE)]
       names(LOWER) <- names(UPPER) <- parnames
       save(LOWER,UPPER,cholDGPv, file="saves4Rmd.rda")
-    } else  load(file="saves4Rmd.rda")
+    }
     
     
     {
@@ -213,7 +217,7 @@ if (is.null(cmdl_jobNbr)) { #
 } 
 
 
-
+# ! Next block contains inferences !
 if (ii < NREPL) { # so that setting prev_latest_one to NREPL prevents the creation of a new summaries_list
   Infusion.options(is_devel_session= user %in% c("francois.rousset","francois")) # position handling package reinstallations
   verboses <- list(most=interactive() || on_genotoul,
@@ -221,7 +225,7 @@ if (ii < NREPL) { # so that setting prev_latest_one to NREPL prevents the creati
                    cloud_parm=NULL)
   cluster_args <- list(project=list(num.threads=procs_per_job)) # but there is no projection in this specific script
   
-  if (for_timings <- FALSE) {
+  if (for_timings <- FALSE) { # Beware of the else !
     Rprof(filename="Rprof.fit_real_data.out", 
           event="elapsed", # non-default under linux, necessary to count time spect in system() calls 
           interval=0.5) 
@@ -261,6 +265,26 @@ if (ii < NREPL) { # so that setting prev_latest_one to NREPL prevents the creati
         S_obs <- S_obs_table[ii,]
         set.seed(234L+ii)
         Infusion.options(is_devel_session= user %in% c("francois.rousset","francois")) # position handling package reinstallations
+        if (length(grep("pow29",thisfilepath))) { # e.g. "[...]/nbClu/pow29/N_7from17"
+          Infusion.options(nbClu_pow_rule_fn= function(nr, ...) ceiling(nr^0.29))
+          message("***using alternative pow rule nr^0.29***")
+        }
+        if (length(grep("pow33",thisfilepath))) { # e.g. "[...]/nbClu/pow33/N_7from17"
+          Infusion.options(nbClu_pow_rule_fn= function(nr, ...) ceiling(nr^0.33))
+          message("***using alternative pow rule nr^0.33***")
+        }
+        if (length(grep("nr8",thisfilepath))) { # e.g. "[...]/nbClu/nr8/N_7from17"
+          Infusion.options(maxnbCluster= function(projdata, nr= nrow(projdata), nc=ncol(projdata)) { 
+            (nr+8L)%/%(nc*(nc+3L)*4L+8L) 
+          })
+          message("***using alternative maxnbCluster ~ P/8 ***")
+        }
+        if (length(grep("nr3",thisfilepath))) { # e.g. "[...]/nbClu/nr3/N_7from17"
+          Infusion.options(maxnbCluster= function(projdata, nr= nrow(projdata), nc=ncol(projdata)) { 
+            (nr+3L)%/%(nc*(nc+3L)*3L/2L+3L) 
+          })
+          message("***using alternative maxnbCluster ~ P/3 ***")
+        }
         
         if (cmdl_resummarize || final_MAF || cmdl_fast_reClu) {
           if (exists("upsliks",envir = .GlobalEnv)) {
@@ -335,7 +359,7 @@ if (ii < NREPL) { # so that setting prev_latest_one to NREPL prevents the creati
                 # original code for the workflow
                 upsliks <- vector("list", length(reftable_sizes))
                 names(upsliks) <- names(reftable_sizes)
-                upsliks <- upsliks[c("28K","44K")] # ad hoc
+                if (DIM==5L) upsliks <- upsliks[c("28K","44K")] # ad hoc
                 
                 ## Construct initial reference table:
                 parsp_j <- init_reftable(lower=LOWER,upper=UPPER,
@@ -426,7 +450,7 @@ if (ii < NREPL) { # so that setting prev_latest_one to NREPL prevents the creati
         resu <- summary_inference_K( # fn def'd in performance_fns.R 
           slik_siz=upsliks[[max_table_size]], 
           # nsim  for bootstrap LRT: 
-          nsim=199L, # in interactive session small bootstrap still useful to catch bugs
+          nsim=cmdl_boot_nsim, # in interactive session small bootstrap still useful to catch bugs
           # Note two default #cores controls.
           nb_cores_LRboot= if (interactive()) {
             if (nsim>19L) {min(procs_per_job, 50L %/% length(LOWER))} else {1L}
@@ -452,18 +476,6 @@ if (FALSE) { # Reformatting and file manipulation functions
     for (st in what) {
       df <- df[,st]
       if (is.list(df)) df <- do.call(rbind,df)
-    }
-    if ( ! is.null(finalFUN)) {
-      # for data frames input at least, lowest level elements loses their attributes: 
-      # the output data frame column keep the attr of the last bound dataframe
-      # eg, in str(df_extract(ecdfs_df,c("SLRTs",focalpar,"basicLRT")))
-      # the last step is to bind the "basicLRT" 1-row data.frames , 
-      # whose elements have attribute "solution" which are lost in the process.
-      # Hence implementation of finalFUN for use as
-      # df_extract(ecdfs_df,c("SLRTs",focalpar), finalFUN=function(v) attr(v$chi2_LR,"solution"))
-      # Used for P_4from17 in particular
-      df <- lapply(df,finalFUN)
-      df <- do.call(rbind,df)
     }
     df
   }

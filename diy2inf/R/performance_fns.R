@@ -44,8 +44,9 @@ get_performance <- function(ecdfs_df, # ! this is NOT do.call(rbind, ecdfs): see
   } else loc_df <- as.data.frame(matrix(nrow=nrow(ecdfs_df),ncol=0L))
   if ("CIs" %in% colnames(ecdfs_df)) {
     CIs_df <-  do.call(rbind, do.call(rbind, ecdfs_df[,"CIs"])[,parm])
-    if ("0.95" %in% colnames(CIs_df)) # weibull...
+    if ("0.95" %in% colnames(CIs_df)) { # weibull... generalized since
       CIs_df <- do.call(rbind, CIs_df[,"0.95"])
+    }
     mslCI <- do.call(rbind,CIs_df[,"interval"])
     coverage <- c(mslCI=sum((is.na(mslCI[,1]) | mslCI[,1] < target) & (is.na(mslCI[,2]) | mslCI[,2] > target))/nrow(mslCI))
     if ("bootCI" %in% colnames(CIs_df)) {

@@ -44,7 +44,7 @@ load4MS <- function(file, SIdir="./", ...) {
 
 ```{r utilities, cache=FALSE}
 library("ggplot2")
-library(latex2exp)
+library("latex2exp")
 par2ltx_backup <- function(v) {
   gsub("V([0-9]*)","$u_{\\1}$", v) # note replacement of V by u
 }
@@ -113,20 +113,25 @@ ord_names <- c('bias.MSLE', 'bias.postEv', 'bias.postMed',
                'cvrg.bartlettP', 'cvrg.postCI', 'cvrg.HPDint_d')
 if (bootCI=="percCI") {
   inmain <- setdiff(ord_names, c("cvrg.rstarP","cvrg.pstarBoot","cvrg.mslCI",
-                                     "cvrg.mslCI", "cvrg.HPDint_d", "cvrg.bartlettP"))
+                                 "cvrg.mslCI", #"cvrg.HPDint_d", 
+                                 "cvrg.bartlettP"))
   inms <- setdiff(ord_names,c("cvrg.rstarP","cvrg.pstarBoot","cvrg.mslCI",                                             "cvrg.bartlettP"))
 } else { # show BartlettP instead.
   inmain <- setdiff(ord_names, c("cvrg.rstarP","cvrg.pstarBoot","cvrg.mslCI",
-                                     "cvrg.mslCI", "cvrg.HPDint_d", "cvrg.perc"))
+                                 "cvrg.mslCI", # "cvrg.HPDint_d", 
+                                 "cvrg.perc"))
   inms <- setdiff(ord_names,c("cvrg.rstarP","cvrg.pstarBoot","cvrg.mslCI",                                             "cvrg.perc"))
 }
 bias_pos <- which(ord_names %in% c("bias.MSLE", "bias.postEv", "bias.postMed"))
 RMSE_pos <- which(ord_names %in% c("RMSE.MSLE", "RMSE.postEv", "RMSE.postMed"))
 
 vec2tex  <- function(locv, retained, bias_pos, RMSE_pos, 
-                     cvrg_pos=setdiff(seq_along(ord_names),c(bias_pos,RMSE_pos))) {
+                     cvrg_pos=setdiff(seq_along(ord_names),c(bias_pos,RMSE_pos)),
+                     loc_ord_names) {
   locv <- locv[retained]
-  locv <- locv[intersect(ord_names,names(locv))]
+  if (missing(loc_ord_names)) {
+    locv <- locv[intersect(ord_names,names(locv))] ## using global 'ord_names' variable
+  } else locv <- locv[intersect(loc_ord_names,names(locv))]
   minBias <- bias_pos[which.min(abs(locv[bias_pos]))]
   minRMSE <- RMSE_pos[which.min(abs(locv[RMSE_pos]))]
   char_locv <- paste(signif(locv,3L))
@@ -563,6 +568,48 @@ perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
 
 
 ```
+
+### `Nbn34` at its boundaries
+
+```{r ST7from17}
+load4MS("diy2inf_simuls/admixtOutOfA/T_7from17_Nbn34_low/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/admixtOutOfA/T_7from17_Nbn34_low/summaries_list.1_400.v2.2.20.rda") 
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs_low <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+#
+load4MS("diy2inf_simuls/admixtOutOfA/S_7from17_Nbn34_hi/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/admixtOutOfA/S_7from17_Nbn34_hi/summaries_list.1_400.v2.2.20.rda") 
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df <- get(full_df_name)
+perf_summs_hi <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+#
+```
+#### Table
+```{r TableST7bnd34}
+{
+  texcode <- lapply(perf_summs_low, vec2tex, retained=inms,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"tableT_7from17_Nbn34_bnds_low.ltx"))
+  #
+  texcode <- lapply(perf_summs_hi, vec2tex, retained=inms,
+                    bias_pos=bias_pos, RMSE_pos=RMSE_pos)
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"tableS_7from17_Nbn34_bnds_hi.ltx"))
+}
+```
+
 ### Effect of iterative workflow on parameter exploration
 
 ```{r logLexploration, fig.width = 4, fig.height = 4, eval=FALSE}
@@ -716,7 +763,7 @@ perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
 }
 ```
 #### Comparisons on reference tables of 6000 samples
-To perform these anlyses, make a local modification of the `max_table_size` in 
+To perform these analyses, make a local modification of the `max_table_size` in 
 the `generic_workflow.R` script.
 ```{r N7from17samplings6K}
 modelpath_nickname <- "N_7from17"
@@ -1200,6 +1247,107 @@ myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
 
 ```{r FigureNI, fig.width = 7, fig.height = 1.5}
 print(myplot)
+```
+## Test of clustering controls
+
+### Power rule $n^{0.31}$ versus alternatives
+
+```{r MVNpow}
+modelpath_nickname <- "MVNpow"
+load4MS("toyTests/MVN6/saves4Rmd.rda", verbose=TRUE)
+scaDGparlist <- as.list(cholDGPv)
+load4MS("toyTests/MVN6/pow31/summaries_list.1_1000.v2.2.20.rda") # without bootstraps
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df_pow31 <- get(full_df_name)
+#
+load4MS("toyTests/MVN6/pow33/summaries_list.1_1000.v2.2.20.rda") # without bootstraps
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df_pow33 <- get(full_df_name)
+#
+load4MS("toyTests/MVN6/pow29/summaries_list.1_1000.v2.2.20.rda") # without bootstraps
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df_pow29 <- get(full_df_name)
+
+```
+```{r tableMVNpow}
+  perf_summs_pow31 <- ad_hoc_fn(ecdfs_df_pow31, DGparlist = scaDGparlist, plot.=plot.)
+  perf_summs_pow33 <- ad_hoc_fn(ecdfs_df_pow33, DGparlist = scaDGparlist, plot.=plot.)
+  perf_summs_pow29 <- ad_hoc_fn(ecdfs_df_pow29, DGparlist = scaDGparlist, plot.=plot.)
+  perf_summs <- perf_summs_pow29
+
+  retained <- c("bias.MSLE","RMSE.MSLE","cvrg.mslCI",
+                "bias.MSLE ","RMSE.MSLE ","cvrg.mslCI ",
+                "bias.MSLE  ","RMSE.MSLE  ","cvrg.mslCI  ") # The spaces in the names matter!
+  for (it in seq(6)) {
+    perf_summs[[it]] <- c(perf_summs_pow29[[it]][c("bias.MSLE","RMSE.MSLE","cvrg.mslCI")],
+                          perf_summs_pow31[[it]][c("bias.MSLE","RMSE.MSLE","cvrg.mslCI")],
+                          perf_summs_pow33[[it]][c("bias.MSLE","RMSE.MSLE","cvrg.mslCI")]) 
+    names(perf_summs[[it]]) <- retained
+  }
+  texcode <- lapply(perf_summs, vec2tex, retained=retained, loc_ord_names=retained,
+                    bias_pos=c(1,4,7), RMSE_pos=c(2,5,8), cvrg_pos=c(3,6,9))
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table",modelpath_nickname,".ltx"))
+
+```
+
+### $P\leq n/4$ rule versus alternatives
+
+```{r MVNnr3nr8}
+modelpath_nickname <- "MVNnr3nr8"
+load4MS("toyTests/MVNcovmat/saves4Rmd.rda", verbose=TRUE)
+scaDGparlist <- as.list(cholDGPv)
+load4MS("toyTests/nr8/MVNcovmat/summaries_list.1_400.v2.2.20.rda") # without bootstraps
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df_nr8 <- get(full_df_name)
+load4MS("toyTests/nr3/MVNcovmat/summaries_list.1_200.v2.2.20.rda") # with bootstraps
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df_nr3a <- get(full_df_name)
+# remove bootstraps
+for (it in seq(200)) {
+  for (jt in seq(15)) {
+  ecdfs_df_nr3a[it,"CIs"][[1]][[jt]][["0.95"]]  <-   
+    ecdfs_df_nr3a[it,"CIs"][[1]][[jt]][["0.95"]][c("lowerpar","upperpar","interval")]
+  }
+}
+load4MS("toyTests/nr3/MVNcovmat/summaries_list.201_400.v2.2.20.rda") # without bootstraps
+lnames <- names(summaries_list)
+(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
+assign(full_df_name, do.call(rbind, summaries_list))
+ecdfs_df_nr3b <- get(full_df_name)
+ecdfs_df_nr3 <- rbind(ecdfs_df_nr3a,ecdfs_df_nr3b)
+
+```
+```{r tableMVNnr3nr8}
+  perf_summs_nr8 <- ad_hoc_fn(ecdfs_df_nr8, DGparlist = scaDGparlist, plot.=plot.)
+  perf_summs_nr3 <- ad_hoc_fn(ecdfs_df_nr3, DGparlist = scaDGparlist, plot.=plot.)
+  perf_summs <- perf_summs_nr3
+  retained <- c("bias.MSLE","RMSE.MSLE","cvrg.mslCI",
+                                 "bias.MSLE ","RMSE.MSLE ","cvrg.mslCI ")
+  for (it in seq(15)) {
+    perf_summs[[it]] <- c(perf_summs_nr3[[it]][c("bias.MSLE","RMSE.MSLE","cvrg.mslCI")],
+                          perf_summs_nr8[[it]][c("bias.MSLE","RMSE.MSLE","cvrg.mslCI")]) 
+    names(perf_summs[[it]]) <- retained
+  }
+  texcode <- lapply(perf_summs, vec2tex, retained=retained, loc_ord_names=retained,
+                    bias_pos=c(1,4), RMSE_pos=c(2,5), cvrg_pos=c(3,6))
+  texcode <- unlist(texcode)
+  partexcode <- sapply(names(texcode), par2ltx )
+  texcode <- paste(partexcode,"&", texcode)
+  writeLines(texcode, con=paste0(MSdir,"table",modelpath_nickname,".ltx"))
+
 ```
 
 

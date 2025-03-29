@@ -264,7 +264,7 @@
       
       canonize <- get_canonizefn(headerPars) # from generic_reparams.R
       
-      if (WITH_REPARAM) { # always the case in these simulations.
+      if (WITH_REPARAM) { # always the case in 'admixtOutofA' simulations, but not 'Harmonia' ones.
         reparamNames <- header2pars(reparamHeaderName)
         reparam_ranges <- get_par_ranges(headerFile=reparamHeaderName, format="matrix") #  from DIYABC2Infusion_def.R
         # the variable parameters in template reparamHeader must be all those that are affected by the variable 
@@ -459,7 +459,7 @@
                                   list(control.Simulate=control.Simulate,
                                        simulator_call=Sobs_simulator_call) )))
       control.Simulate$statNames <- names(template_Sobs)
-      # Turn of the traces once 'inputHeader' name has been checked
+      # Turn off the traces once 'inputHeader' name has been checked
       try(untrace(parvec2DIYheader), silent=TRUE)
       try(untrace(ranges2DIYheader), silent=TRUE)
     }
@@ -531,7 +531,7 @@
         if (modelpath_nickname =="B_axy_8pars") scaDGP["logTh4"] <- 0.85
       } else if ( length(grep("admixtOutOfA", thisfilepath)) ) {
         # Use ML estimates from the likelihood profile for t1=6  
-        if (modelpath_nickname %in% c("N_7from17")) {
+        if (modelpath_nickname %in% c("N_7from17","S_7from17_Nbn34_hi""T_7from17_Nbn34_low")) {
           load("actual_data_inferences.v2.1.79.2.rda")
           tmpDGP <- fits[[length(fits)]]$MSL$MSLE
           tmpDGP[["t1"]] <- 6 # flat profile
@@ -543,6 +543,9 @@
           scaRANGE <- scaUPPER-scaLOWER
           any(chk_at_bound <- c((scaDGP-scaLOWER)/scaRANGE,
                                 (scaUPPER-scaDGP)/scaRANGE)<0.049999999)
+          # These two lines are more a form of documentation than effectively used code:
+          if (modelpath_nickname == "S_7from17_Nbn34_hi") scaDGP[["Nbn34"]] <- 500 # upper bound
+          if (modelpath_nickname == "T_7from17_Nbn34_low") scaDGP[["Nbn34"]] <- 5 # lower bound
         } else if (modelpath_nickname %in% c("O_13from17")) {
           load("actual_data_inferences.v2.1.192.rda")
           tmpDGP <- fits[[length(fits)]]$MSL$MSLE
@@ -589,7 +592,7 @@
       paste0(names(scaDGP),"=", scaDGP, collapse=", ") # for easy copy
     }  
     
-    # Data-generating values used in performance simulations, often derived by the above fits:
+    # Data-generating values used in performance simulations, often derived from the above fits:
     if ( ! fit_real_data) {
       if ( length(grep("Harmonia", thisfilepath)) ) { # Ladybird invasion scenario
         if ( 
@@ -627,6 +630,14 @@
           "N_7from17" = { 
             c(log.N2.=3.5, t1=6,   log.t12.=2.2, 
               log1p.t23.=1.5,         Nbn34=65, log1p.t34.=3, log.Na.=2.7)
+          },
+          "S_7from17_Nbn34_hi" = { 
+            c(log.N2.=3.5, t1=6,   log.t12.=2.2, 
+              log1p.t23.=1.5,         Nbn34=500, log1p.t34.=3, log.Na.=2.7)
+          },
+          "T_7from17_Nbn34_low" = { 
+            c(log.N2.=3.5, t1=6,   log.t12.=2.2, 
+              log1p.t23.=1.5,         Nbn34=5, log1p.t34.=3, log.Na.=2.7)
           },
           "N_7from17_final_MAF" = { # same values as N_7from17  
             c(log.N2.=3.5, t1=6,   log.t12.=2.2, 
@@ -825,10 +836,11 @@ if (FALSE) { # O_13from17_logNbn34 and O_13from17_logN1
         warning("S_obs_table.rda should be copied from the 'O_13from17' directory")
         browser()
         # below there is some code showing how the original O_13from17 S_obs_table
-        # was extended when more smaples were needed for P_4from17.
+        # was extended when more samples were needed for P_4from17.
       }
       cat(crayon::yellow("Building the S_obs_table\n"))
-      if (modelpath_nickname %in% c("N_7from17","D_axy_8pars","P_4from17","O_13from17")) {
+      if (modelpath_nickname %in% c("N_7from17","D_axy_8pars","P_4from17","O_13from17",
+                                    "S_7from17_Nbn34_hi","T_7from17_Nbn34_low")) {
         NREPL <- 1000L  
       } else NREPL <- 200L 
       set_seeds(567,simulator_call = control.Simulate$simulator_call)
