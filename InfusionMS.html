@@ -352,7 +352,7 @@ display: none;
 <h1 class="title toc-ignore">Assembling figures, tables and SI for
 summary-likelihood ms</h1>
 <h4 class="author">F. Rousset</h4>
-<h4 class="date">2025/03/29</h4>
+<h4 class="date">2025/04/05</h4>
 
 </div>
 
@@ -541,7 +541,16 @@ vec2tex  &lt;- function(locv, retained, bias_pos, RMSE_pos,
   } else locv &lt;- locv[intersect(loc_ord_names,names(locv))]
   minBias &lt;- bias_pos[which.min(abs(locv[bias_pos]))]
   minRMSE &lt;- RMSE_pos[which.min(abs(locv[RMSE_pos]))]
-  char_locv &lt;- paste(signif(locv,3L))
+  oldopt &lt;- options(scipen=666)
+  char_locv &lt;- paste0(round(locv,digits = 5),&quot;00000&quot;)
+  is1 &lt;- char_locv==&quot;100000&quot;
+  char_locv[is1] &lt;- &quot;1.00000&quot;
+  options(oldopt)
+  isnegvals &lt;-  locv &lt; 0
+  for (it in seq_along(char_locv)) {
+   char_locv[it]  &lt;- substring(char_locv[it],1L, 
+                               2L+max(3L, -floor(log(abs(locv[it]),10))) +isnegvals[it])
+  }
   char_locv[minBias] &lt;- paste0(&quot;\\textbf{&quot;,char_locv[minBias],&quot;}&quot;)
   char_locv[minRMSE] &lt;- paste0(&quot;\\textbf{&quot;,char_locv[minRMSE],&quot;}&quot;)
   cvrg_pos &lt;- intersect(grep(&quot;cvrg&quot;,names(locv)),cvrg_pos)
@@ -1042,6 +1051,10 @@ perf_summs_hi &lt;- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
   texcode &lt;- paste(partexcode,&quot;&amp;&quot;, texcode)
   writeLines(texcode, con=paste0(MSdir,&quot;tableS_7from17_Nbn34_bnds_hi.ltx&quot;))
 }</code></pre>
+<pre><code>## Warning in substring(char_locv[it], 1L, 2L + max(3L, -floor(log(abs(locv[it]),
+## : NAs introduits lors de la conversion automatique en &#39;integer&#39;
+## Warning in substring(char_locv[it], 1L, 2L + max(3L, -floor(log(abs(locv[it]),
+## : NAs introduits lors de la conversion automatique en &#39;integer&#39;</code></pre>
 </div>
 </div>
 <div id="effect-of-iterative-workflow-on-parameter-exploration" class="section level3">
@@ -1623,7 +1636,8 @@ pdf(paste0(MSdir, &quot;2Dprofile_b3_P4from17.22K.pdf&quot;),width = 5,height = 
 Infusion::plot2Dprof(profiles_info$fit_info, 
            pars=list(&quot;d3_Nbn3&quot;,&quot;log.Nbn3.&quot;), 
            profiles = profiles_info$profiles, 
-           xylabs=c(d3_Nbn3=latex2exp::TeX(par2ltx(&#39;d3_Nbn3&#39;)),
+           color.palette = function(n) grDevices::hcl.colors(n=n ,palette=&quot;viridis&quot;, rev=TRUE),
+           xylabs=c(d3_Nbn3=latex2exp::TeX(&quot;$b_3=d_3/N_{\\textrm{bn3}}$&quot;),
                     log.Nbn3.=latex2exp::TeX(par2ltx(&quot;log.Nbn3.&quot;))))</code></pre>
 <pre class="r"><code>dev.off()</code></pre>
 <pre><code>## png 

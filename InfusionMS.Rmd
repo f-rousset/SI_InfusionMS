@@ -29,6 +29,7 @@ source("./diy2inf/R/output_files_manips.R")
 MSdir <- "./../scratch/"   
 bootCI <- "BartCI"
 ```
+
 ```{r knitr_utilities}
 # Utility to make sure necessary files are copied in the Supplementary Information
 load4MS <- function(file, SIdir="./", ...) {
@@ -134,7 +135,15 @@ vec2tex  <- function(locv, retained, bias_pos, RMSE_pos,
   } else locv <- locv[intersect(loc_ord_names,names(locv))]
   minBias <- bias_pos[which.min(abs(locv[bias_pos]))]
   minRMSE <- RMSE_pos[which.min(abs(locv[RMSE_pos]))]
-  char_locv <- paste(signif(locv,3L))
+  oldopt <- options(scipen=666)
+  char_locv <- paste0(round(locv,digits = 5),"00000")
+  options(oldopt)
+  char_locv[char_locv=="100000"] <- "1.00000"
+  isnegvals <-  locv < 0
+  for (it in seq_along(char_locv)) {
+   char_locv[it]  <- substring(char_locv[it],1L, 
+                               2L+max(3L, -floor(log(abs(locv[it]),10))) +isnegvals[it])
+  }
   char_locv[minBias] <- paste0("\\textbf{",char_locv[minBias],"}")
   char_locv[minRMSE] <- paste0("\\textbf{",char_locv[minRMSE],"}")
   cvrg_pos <- intersect(grep("cvrg",names(locv)),cvrg_pos)
@@ -1153,7 +1162,8 @@ pdf(paste0(MSdir, "2Dprofile_b3_P4from17.22K.pdf"),width = 5,height = 6.5) # dim
 Infusion::plot2Dprof(profiles_info$fit_info, 
            pars=list("d3_Nbn3","log.Nbn3."), 
            profiles = profiles_info$profiles, 
-           xylabs=c(d3_Nbn3=latex2exp::TeX(par2ltx('d3_Nbn3')),
+           color.palette = function(n) grDevices::hcl.colors(n=n ,palette="viridis", rev=TRUE),
+           xylabs=c(d3_Nbn3=latex2exp::TeX("$b_3=d_3/N_{\\textrm{bn3}}$"),
                     log.Nbn3.=latex2exp::TeX(par2ltx("log.Nbn3."))))
 dev.off()
 ```
