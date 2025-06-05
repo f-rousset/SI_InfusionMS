@@ -91,12 +91,14 @@ par2ltx <- function(v) switch(v,
 prettyround <- function(x,extradigits=0) {
     ## extradigits=0 => 99(99)99->99(99)99; 999.9->999.9; 9.999->9.999; 0.xxx -> 3 chifres signif
     for(i in seq_len(length(x))) {
-        xi <- x[i]
-        if (is.na(xi)) x[i] <- NA
-        #ELSE
+      xi <- x[i]
+      if (is.na(xi)) {
+        x[i] <- NA
+      } else {
         if (xi<1) {n<-3} else if (xi>1000) {n <- ceiling(log(xi,10))} else {n <- 4}
         n <- n+extradigits
         x[i] <- round(xi,n)
+      }
     }
     x
 }
@@ -1040,6 +1042,32 @@ xyplot <- ggplot(tib, aes(x=DGP, # continuous here
 print(xyplot)
 ggsave(filename=paste0(MSdir,"boxp_","O_13from17_logNbn34",".pdf"))
 ```
+
+#### Real-data inferences
+
+```{r realdata013from17, eval=FALSE}
+load4MS("diy2inf_simuls/admixtOutOfA/O_13from17/actual_data_inferences.summaries.rda")
+  
+confints <- lapply(summ_inference_maxK[["CIs"]], function(v) v[[1]]$interval)
+post_quantiles <- lapply(abcrf_resu, function(v) v$quantiles)
+HPDints <- lapply(abcrf_resu, function(v) v$HPDint_d)
+texcode <- sapply(names(confints), function(v) 
+  paste(par2ltx(v), "&",
+        signif(summ_inference_maxK$MSL$MSLE[[v]], 3),"&",    
+        signif(abcrf_resu[[v]]$"expectation", 3),"&",    
+        signif(abcrf_resu[[v]]$"med", 3),"&",    
+        paste(signif(confints[[v]],3), collapse="--"),"&",
+    paste(signif(HPDints[[v]],3), collapse="--"),"&",
+    paste(signif(post_quantiles[[v]],3), collapse="--")," \\\\ "
+  )
+)
+
+(texcode <- unlist(texcode))
+
+writeLines(texcode, con=paste0(MSdir,"table.fit_real_O13from17.ltx"))
+
+```
+
 
 ### Diagnosing the distribution of LRTs for $d_3/N_{\textrm{bn3}}$
 #### Base simulations for 4-parameter sub-model
