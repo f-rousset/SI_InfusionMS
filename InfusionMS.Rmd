@@ -1045,6 +1045,8 @@ ggsave(filename=paste0(MSdir,"boxp_","O_13from17_logNbn34",".pdf"))
 
 #### Real-data inferences
 
+Production of SI table from saved `abcrf` and `Infusion` inference results: 
+
 ```{r realdata013from17, eval=FALSE}
 load4MS("diy2inf_simuls/admixtOutOfA/O_13from17/actual_data_inferences.summaries.rda")
   
