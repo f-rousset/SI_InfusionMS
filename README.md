@@ -5,6 +5,12 @@ The Rmarkdown file [`Infusion.Rmd`](InfusionMS.Rmd) can be used to generate the 
 describing the results of this paper, using information saved in subdirectories.  The Rmarkdown file and its [html output](InfusionMS.html), can be consulted to match a given 
 subdirectory to a given Table or Figure from the ms.
 
+Raw real **data** used in the study are provided as
+[`diy2inf_simuls/Harmonia/data_HA_INFUSION.txt`](diy2inf_simuls/Harmonia/data_HA_INFUSION.txt) and 
+[`diy2inf_simuls/admixtOutOfA/human_snp_all22chr_maf1__10inds_per_sample.snp`](diy2inf_simuls/admixtOutOfA/human_snp_all22chr_maf1__10inds_per_sample.snp).
+The same directories contain additional files that may be needed to run the simulations, such as 
+`statobsRF.txt` that contains the summary statistics for the data.
+
 Scripts that can be used to reproduce the **simulations** are provided in directories
 [`toyTests`](toyTests/) and [`diy2inf_simuls`](diy2inf_simuls/). These directories themselves contain nested 
 subdirectories. Each terminal subdirectory corresponds to a simulation scenario.
