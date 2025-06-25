@@ -1,4 +1,4 @@
-### Scripts and results for ["A new iterative framework for simulation-based population genetic inference with improved coverage properties of confidence intervals"](https://www.biorxiv.org/content/10.1101/2024.09.30.615940v1)
+### Scripts and results for ["A new iterative framework for simulation-based population genetic inference with improved coverage properties of confidence intervals"](https://www.biorxiv.org/content/10.1101/2024.09.30.615940v3)
 By Rousset, Leblois, Estoup & Marin 
 
 The Rmarkdown file [`Infusion.Rmd`](InfusionMS.Rmd) can be used to generate the **Figures and Tables** 
