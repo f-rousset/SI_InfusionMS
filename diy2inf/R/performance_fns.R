@@ -285,7 +285,7 @@ summary_inference_K <- function(slik_siz=upsliks[[length(upsliks)]], upsliks, # 
         SLRTs <<- latest_SLRTs
       }
     )
-    if (requireNamespace("likelihoodAsy") && rstar_R>0L) for (it in seq_along(SLRTs)) {
+    if (rstar_R>0L && requireNamespace("likelihoodAsy")) for (it in seq_along(SLRTs)) {
       SLRTs[[it]]$LRT_rstar <- wrap_my_rstar(slik=slik_siz, h0=h0s[[it]]) 
     }
     resu$SLRTs <- SLRTs

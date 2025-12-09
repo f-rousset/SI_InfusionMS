@@ -1,6 +1,6 @@
 ## This file must be copied in a working directory
 ## Then, note how 'dir_generic' and 'thisfilepath' are set by the code below.
-## you may need to set the urrent R working directory manually.
+## you may need to set the current R working directory manually.
 ## Then, the following big block of code should be run (in full) 
 ## to initialize variables required for a simulation
 ## in a way controlled by the name of the working directory.
@@ -531,7 +531,7 @@
         if (modelpath_nickname =="B_axy_8pars") scaDGP["logTh4"] <- 0.85
       } else if ( length(grep("admixtOutOfA", thisfilepath)) ) {
         # Use ML estimates from the likelihood profile for t1=6  
-        if (modelpath_nickname %in% c("N_7from17","S_7from17_Nbn34_hi""T_7from17_Nbn34_low")) {
+        if (modelpath_nickname %in% c("N_7from17","S_7from17_Nbn34_hi","T_7from17_Nbn34_low")) {
           load("actual_data_inferences.v2.1.79.2.rda")
           tmpDGP <- fits[[length(fits)]]$MSL$MSLE
           tmpDGP[["t1"]] <- 6 # flat profile
