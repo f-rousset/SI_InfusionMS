@@ -149,15 +149,16 @@
       for (it in seq_along(h0s)) {names(h0s[[it]]) <- names(h0s)[it]}
     }
     
-    chk <- try(load("S_obs_table.rda"))
+    chk <- try(load("S_obs_table.rda"),silent = TRUE)
     if (inherits(chk,"try-error")) {
+      cat(crayon::yellow("Simulated data simulation (file no provided).\n")
       set.seed(234)
       S_obs_table <-  t(replicate(1000L, {sample1(cholDGPv)}))
       colnames(S_obs_table) <- statnames
       save(S_obs_table, file="S_obs_table.rda")
     }
     
-    chk <- try(load("saves4Rmd.rda"))
+    chk <- try(load("saves4Rmd.rda"), silent=TRUE)
     if (inherits(chk,"try-error")) { # variables always needed: recompute or load
       if (FALSE) {
         # a quick look at realistic parameter ranges:
@@ -359,7 +360,11 @@ if (ii < NREPL) { # so that setting prev_latest_one to NREPL prevents the creati
                 # original code for the workflow
                 upsliks <- vector("list", length(reftable_sizes))
                 names(upsliks) <- names(reftable_sizes)
-                if (DIM==5L) upsliks <- upsliks[c("28K","44K")] # ad hoc
+                upsliks <- upsliks[unique(
+                  c(tail(names(reftable_sizes),1), # important to keep the final one otherwise the loop on 'newsizes' below will be run...
+                    intersect(names(reftable_sizes), 
+                              c("28K","44K")) # ad hoc for DIM=5
+                  ))] # ad hoc
                 
                 ## Construct initial reference table:
                 parsp_j <- init_reftable(lower=LOWER,upper=UPPER,
@@ -373,9 +378,13 @@ if (ii < NREPL) { # so that setting prev_latest_one to NREPL prevents the creati
                 slik_j <- MSL(slik_j, eval_RMSEs = FALSE, CIs=FALSE)
                 for (siz in names(reftable_sizes)) { ## ad hoc as sizes does not contain 1K
                   ## but (later added) explicit control by ntot is more robust. 
-                  slik_j <- refine(slik_j, ntot=reftable_sizes[siz]-nrow(slik_j$logLs),
-                                   verbose=verboses, eval_RMSEs = FALSE, CIs=FALSE)
-                  if (siz %in% names(upsliks)) upsliks[[siz]] <- slik_j
+                  ntot <- reftable_sizes[siz]-nrow(slik_j$logLs)
+                  if (ntot>0L) {
+                    slik_j <- refine(slik_j, ntot=reftable_sizes[siz]-nrow(slik_j$logLs),
+                                     workflow_design=workflow_design,
+                                     verbose=verboses, eval_RMSEs = FALSE, CIs=FALSE)
+                    if (siz %in% names(upsliks)) upsliks[[siz]] <- slik_j
+                  }
                 } 
                 save(upsliks,file=paste0("upsliks_",ii,".rda"))
               } else cat(crayon::yellow(paste0(" 'upsliks' loaded from disk")))
