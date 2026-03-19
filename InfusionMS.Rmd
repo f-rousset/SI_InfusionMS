@@ -8,7 +8,7 @@ date: "`r format(Sys.time(), '%Y/%m/%d')`"
 author: F. Rousset
 ---
 
-This script has been used to generate the Figures and Tables for the manuscript, from the saved raw simulation results. The latter results were produced with various versions of the `Infusion` package, with minimal version 2.1.186.2 (implementing the ultimately retained values of control parameters of the iterative workflow)  for the fits, and minimal version 2.1.196 (implementing a fix for maximization issues of the likelihood surfaces in the bootstrap procedures) for the post-fit analyses. These features are available in version 2.2.0 on CRAN. A distinct package, `mafR`, also available on CRAN, has been written to interface `python` software used for training Masked Autoregressive Flows.  
+This script has been used to generate the Figures and Tables for the manuscript, from the saved raw simulation results. The latter results were produced with various versions of the `Infusion` package, with minimal version 2.1.186.2 (implementing the ultimately retained values of control parameters of the iterative workflow)  for the fits, and minimal version 2.1.196 (implementing a fix for maximization issues of the likelihood surfaces in the bootstrap procedures) for the post-fit analyses. These features are available in version 2.2.0 on CRAN. 
 
 
 # Setup and definitions
@@ -31,16 +31,26 @@ bootCI <- "BartCI"
 ```
 
 ```{r knitr_utilities}
-# Utility to make sure necessary files are copied in the Supplementary Information
-load4MS <- function(file, SIdir="./", ...) {
+# Utilities to make sure necessary files are copied in the published code:
+save4MS <- function(file, SIdir="./") {
   copyforMS <- paste0(SIdir,file)
   if ( ! file.exists(copyforMS)) {
     copydir <- dirname(copyforMS)
     if ( ! dir.exists(copydir)) dir.create(copydir, recursive = TRUE)
     file.copy(file, copyforMS)
   }
+}
+
+load4MS <- function(file, SIdir="./", ...) {
+  save4MS(file=file, SIdir=SIdir)
   load(file, ..., envir=knitr::knit_global())
 }
+
+read4MS <- function(file, SIdir="./") {
+  save4MS(file=file, SIdir=SIdir)
+  read.table(file,dec='.',sep=';')
+}
+
 ```
 
 ```{r utilities, cache=FALSE}
@@ -150,7 +160,8 @@ vec2tex  <- function(locv, retained, bias_pos, RMSE_pos,
   char_locv[minRMSE] <- paste0("\\textbf{",char_locv[minRMSE],"}")
   cvrg_pos <- intersect(grep("cvrg",names(locv)),cvrg_pos)
   if (length(cvrg_pos)>1L) {
-    bestcvrg <- cvrg_pos[which.min(abs(locv[cvrg_pos]-0.95))]
+    absd <- abs(locv[cvrg_pos]-0.95)
+    bestcvrg <- cvrg_pos[which(absd<min(absd)+1e-4)]
     char_locv[bestcvrg] <- paste0("\\textbf{",char_locv[bestcvrg],"}")
   }
   paste(paste(char_locv,collapse=" & "),"\\\\ ")
@@ -221,7 +232,7 @@ lnames <- names(summaries_list)
 (full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
 assign(full_df_name, do.call(rbind, summaries_list))
 ecdfs_df <- get(full_df_name)
-perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+perf_summs <- cp_perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
 
 ```
 
@@ -297,7 +308,7 @@ load4MS("diy2inf_simuls/Harmonia/D_axy_8pars_logTh4/S_obs_table.rda", verbose=TR
   xy_lims <- c(LOWER[parm],UPPER[parm])
   
   tib <- data.frame(ABCRF=df_extract(ecdfs_df,c("abcrf","logTh4","expectation"))[,1],
-                    SMLE=df_extract(ecdfs_df,c("MSL","MSLE","logTh4")))
+                    MSLE=df_extract(ecdfs_df,c("MSL","MSLE","logTh4")))
   tib <- tidyr::pivot_longer(tib,seq(2),names_to="estimator")
   tib$estimator <- factor(tib$estimator)
   unique_x <- unique(S_obs_table_info$par.grid[,parm])
@@ -330,6 +341,46 @@ load4MS("diy2inf_simuls/Harmonia/D_axy_8pars_logTh4/S_obs_table.rda", verbose=TR
   ggsave(filename=paste0(MSdir,"boxp_",modelpath_nickname,".pdf"))
 
 ```
+
+### Inference by SNLE using `sbi` python package
+The following chunk of code makes sure that an `R` script used to assemble the `SNLE_summaries.rda` file from the raw Python output files is included:
+```{r save_scripts_SNLE_8p}
+save4MS("diy2inf_simuls/Harmonia/D_axy_8pars/SNLE/summarize_snle.R")  
+```
+An `SNLE/allfilesforeachjob/` subdirectory should also be present, including all files used to run the simulations.
+
+
+```{r table_SNLE_8p}
+modelpath_nickname <- "D_axy_8pars"
+load4MS("diy2inf_simuls/Harmonia/D_axy_8pars/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/Harmonia/D_axy_8pars/SNLE/SNLE_summaries.rda", verbose=TRUE) # postm, q1s,s2s
+
+summs <- vector("list", 8L)
+names(summs) <- parms
+for (parm in parms) {
+  m <- (postm[,parm] - scaDGP[parm])/(UPPER[parm] - LOWER[parm])
+  cover <- (q1s[,parm]< scaDGP[parm] & q2s[,parm] > scaDGP[parm] )
+  summs[[parm]] <- c(cp_perf_summs[[parm]][c("bias.MSLE","RMSE.MSLE","cvrg.mslCI","cvrg.rawbootP","cvrg.bartlettP")],
+                     c(bias.SNLE=mean(m),
+                          RMSE.SNLE=sqrt(mean(m^2)), 
+                          cvrg.SNLE=sum(cover)/length(cover))
+  )
+}
+
+texcode <- lapply(
+  summs, vec2tex, 
+  retained=names(summs[[1]]),
+  bias_pos=c(1,6), RMSE_pos=c(2,7), # cvrg_pos=c(3,6),
+  loc_ord_names=names(summs[[1]]))
+texcode <- unlist(texcode)
+partexcode <- sapply(names(texcode), par2ltx )
+texcode <- paste(partexcode,"&", texcode)
+writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,"SNLE.ltx"))
+
+```
+
+
 ## Second set of parameters
 
 ### Base simulations
@@ -455,7 +506,7 @@ load4MS("diy2inf_simuls/Harmonia/C_axy_8pars_logTh4/S_obs_table.rda", verbose=TR
   xy_lims <- c(LOWER[parm],UPPER[parm])
   
   tib <- data.frame(ABCRF=df_extract(ecdfs_df,c("abcrf","logTh4","expectation"))[,1],
-                    SMLE=df_extract(ecdfs_df,c("MSL","MSLE","logTh4")))
+                    MSLE=df_extract(ecdfs_df,c("MSL","MSLE","logTh4")))
   tib <- tidyr::pivot_longer(tib,seq(ncol(tib)),names_to="estimator")
   tib$estimator <- factor(tib$estimator)
   unique_x <- unique(S_obs_table_info$par.grid[,parm])
@@ -506,7 +557,7 @@ lnames <- names(summaries_list)
 (full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
 assign(full_df_name, do.call(rbind, summaries_list))
 ecdfs_df <- get(full_df_name)
-perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
+perf_summs <- cp_perf_summs <- ad_hoc_fn(ecdfs_df, DGparlist = scaDGparlist, plot.=plot.)
 ```
 #### Table
 ```{r TableN7}
@@ -697,81 +748,6 @@ print(xyplot)
 ggsave(filename=paste0(MSdir,"logLexplo_Nbn34.pdf"))
 ```
 
-### Inferences by Masked Autoregressive Flows (MAFs)
-
-MAFs are here computed on the final reference tables only.
-
-#### Inferences
-
-```{r comparMAFs}
-modelpath_nickname <- "N_7from17_final_MAF"
-load4MS("diy2inf_simuls/admixtOutOfA/N_7from17_final_MAF/saves4Rmd.rda", verbose=TRUE)
-load4MS("diy2inf_simuls/admixtOutOfA/N_7from17_final_MAF/summaries_list.1_200.v2.1.194.1.rda")
-lnames <- names(summaries_list)
-(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
-assign(full_df_name, do.call(rbind, summaries_list))
-ecdfs_PSM19 <- get(full_df_name)
-perf_summs <- ad_hoc_fn(ecdfs_PSM19, DGparlist = scaDGparlist, plot.=FALSE)
-texcodedef <- lapply(perf_summs, vec2tex, retained=inmain,
-                    bias_pos=NULL, RMSE_pos=NULL)
-texcodedef <- unlist(texcodedef)
-#
-load4MS("diy2inf_simuls/admixtOutOfA/N_7from17_final_MAF/summaries_list.1_200.zukocontrols.v2.1.196.3.rda")
-lnames <- names(summaries_list)
-(full_df_name <- paste0("df_",lnames[1],"_",tail(lnames,1)))
-assign(full_df_name, do.call(rbind, summaries_list))
-ecdfs_zuko <- get(full_df_name)
-perf_summs <- ad_hoc_fn(ecdfs_zuko, DGparlist = scaDGparlist, plot.=FALSE)
-texcodealt <- lapply(perf_summs, vec2tex, retained=inmain,
-                    bias_pos=NULL, RMSE_pos=NULL)
-texcodealt <- unlist(texcodealt)
-texcode <- paste(gsub("\\\\ ", "& ",texcodedef, fixed=TRUE),texcodealt)
-partexcode <- sapply(names(texcodedef), par2ltx )
-texcode <- paste(partexcode,"&", texcode)
-writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".compar.ltx"))
-```
-(there is a glitch because of lacking `train_times` information for the first twenty replicates in `ecdfs_PSM19` but this has no bearing on the results).
-
-Figure with PSM19 controls:
-```{r Figure3MAFcode, fig.width = 7, fig.height = 2.5}
-myplot <- calc_ggplot(scaDGparlist, ecdfs_PSM19, modelpath_nickname,
-            which.p="basicLRT", xsep=0.3,
-            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".pdf"))
-```
-
-```{r Figure3MAF, fig.width = 7, fig.height = 2.5}
-print(myplot)
-
-```
-Figure with zuko-like controls:
-```{r Figure3MAFcodezuko, fig.width = 7, fig.height = 2.5}
-myplot <- calc_ggplot(scaDGparlist, ecdfs_zuko, modelpath_nickname,
-            which.p="basicLRT", xsep=0.3,
-            filename=paste0(MSdir,"ecdfs_",modelpath_nickname,".zuko.pdf"))
-```
-
-```{r Figure3MAFzuko, fig.width = 7, fig.height = 2.5}
-print(myplot)
-```
-
-#### Training times of MAFs
-
-The training times of the MAFs on the final reference tables are shown in the comments of the following code: 
-```{r eval=FALSE}
-if (FALSE) { # The fits are not included in the Supplementary Information 
-  # timings on PC
-  tt <- sapply(1:20, function(it) {
-    load(paste0("../N_7from17_final_MAF/upsliks_",it,".rda"))
-    attr(upsliks$"20K"$conddens,"train_time")
-  })
-  mean(tt) # 448.545
-  
-  # on genotoul cluster: 
-  ttt <- df_extract(ecdfs_df[-(1:20),], "train_times")
-  colMeans(ttt) # 561.4467 for conddens (giving likelihood)
-}
-```
-Timings for "alternative" MAF controls, and for "alternative" controls but with a learning rate of `1e-4`, were 551.63 s and 1244.65 s, respectively (measured on yet another cluster, with more GPU available).
 
 
 ### Alternative sampling function
@@ -866,6 +842,45 @@ myplot <- calc_ggplot(scaDGparlist, ecdfs_df, modelpath_nickname,
 ```{r Figure3ggsynth, fig.width = 7, fig.height = 2.5}
 print(myplot)
 ```
+
+### Inference by SNLE using `sbi` python package
+The following chunk of code makes sure that an `R` script used to assemble the `SNLE_summaries.rda` file from the raw Python output files is included:
+```{r save_scripts_SNLE_7p}
+save4MS("diy2inf_simuls/admixtOutOfA/N_7from17/SNLE/summarize_snle.R")  
+```
+An `SNLE/allfilesforeachjob/` subdirectory should also be present, including all files used to run the simulations.
+
+```{r table_SNLE_7p}
+modelpath_nickname <- "N_7from17"
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/saves4Rmd.rda", verbose=TRUE)
+parms <- names(scaDGP <- unlist(scaDGparlist))
+load4MS("diy2inf_simuls/admixtOutOfA/N_7from17/SNLE/SNLE_summaries.rda", verbose=TRUE) # postm, q1s,s2s
+
+summs <- vector("list", 7L)
+names(summs) <- parms
+for (parm in parms) {
+  m <- (postm[,parm] - scaDGP[parm])/(UPPER[parm] - LOWER[parm])
+  cover <- (q1s[,parm]< scaDGP[parm] & q2s[,parm] > scaDGP[parm] )
+  summs[[parm]] <- c(cp_perf_summs[[parm]][c("bias.MSLE","RMSE.MSLE","cvrg.mslCI","cvrg.rawbootP","cvrg.bartlettP")],
+                     c(bias.SNLE=mean(m),
+                          RMSE.SNLE=sqrt(mean(m^2)), 
+                          cvrg.SNLE=sum(cover)/length(cover))
+  )
+}
+
+texcode <- lapply(
+  summs, vec2tex, 
+  retained=names(summs[[1]]),
+  bias_pos=c(1,6), RMSE_pos=c(2,7), # cvrg_pos=c(3,6),
+  loc_ord_names=names(summs[[1]]))
+texcode <- unlist(texcode)
+partexcode <- sapply(names(texcode), par2ltx )
+texcode <- paste(partexcode,"&", texcode)
+writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,"SNLE.ltx"))
+
+
+```
+
 
 ## 13-parameter version
 
@@ -1239,6 +1254,7 @@ print(myplot)
 
 # Toy example: multivariate Normal distribution
 ## Fully identifiable model
+### Summary-likelihood inferences
 ```{r fullidentif}
 modelpath_nickname <- "MVNcovmat"
 load4MS("toyTests/MVNcovmat/saves4Rmd.rda", verbose=TRUE)
@@ -1259,6 +1275,55 @@ ecdfs_df <- get(full_df_name)
   texcode <- paste(partexcode,"&", texcode)
   writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,".ltx"))
   cvrg.bootCI.TFI <- do.call(rbind, perf_summs)[,"cvrg.bartlettP"]
+```
+### Inference by SNLE using `sbi` python package
+The following chunk of code makes sure that the `python` script used to run the simulations, and an `R` script used to assemble the `SNLE_summaries.rda` file from the raw Python output files, are included in the published code:
+```{r save_scripts_MVN}
+save4MS("toyTests/MVNcovmat/SNLE/snle_MVNcovmat.py") 
+save4MS("toyTests/MVNcovmat/SNLE/summarize_snle.R")  
+```
+
+```{r tableMVN_SNLE}
+load4MS("toyTests/MVNcovmat/saves4Rmd.rda", verbose=TRUE) # LOWER, UPPER, cholDGPv
+load4MS("toyTests/MVNcovmat/SNLE/SNLE_summaries.rda", verbose=TRUE) # postm, q1s,s2s
+modelpath_nickname <- "MVNcovmat"
+
+summs <- vector("list", 15L)
+names(summs) <- Rord_names <- names(LOWER)
+for (parm in names(summs)) {
+  m <- (postm[,parm] - cholDGPv[parm])/(UPPER[parm] - LOWER[parm])
+  cover <- (q1s[,parm]< cholDGPv[parm] & q2s[,parm] > cholDGPv[parm] )
+  summs[[parm]] <- c(perf_summs_TFI[[parm]][c("bias.MSLE","RMSE.MSLE","cvrg.mslCI","cvrg.rawbootP","cvrg.bartlettP")],
+                     c(bias.SNLE=mean(m),
+                          RMSE.SNLE=sqrt(mean(m^2)), 
+                          cvrg.SNLE=sum(cover)/length(cover))
+  )
+}
+
+texcode <- lapply(
+  summs, vec2tex, 
+  retained=names(summs[[1]]),
+  bias_pos=c(1,6), RMSE_pos=c(2,7), # cvrg_pos=c(3,6),
+  loc_ord_names=names(summs[[1]]))
+texcode <- unlist(texcode)
+partexcode <- sapply(names(texcode), par2ltx )
+texcode <- paste(partexcode,"&", texcode)
+writeLines(texcode, con=paste0(MSdir,"table", modelpath_nickname,"SNLE.ltx"))
+
+  
+# Graphical comparison of interval widths
+SLCIwidths <- numeric(15)
+names(SLCIwidths) <- Rord_names
+for (st in names(SLCIwidths)) {
+  interv <- df_extract(ecdfs_df,c("CIs",st,"0.95","interval"))
+  print(c(sum(is.na(interv[,1])),sum(is.na(interv[,2])))) # some intervals reach the bounds
+  interv[is.na(interv[,1]),1] <-  LOWER[st]
+  interv[is.na(interv[,2]),2] <-  UPPER[st]
+  SLCIwidths[st] <- mean(interv[,2]-interv[,1])
+}
+plot(SLCIwidths, colMeans(q2s-q1s))
+abline(0,1)
+
 ```
 
 
@@ -1414,6 +1479,4 @@ ecdfs_df_nr3 <- rbind(ecdfs_df_nr3a,ecdfs_df_nr3b)
   writeLines(texcode, con=paste0(MSdir,"table",modelpath_nickname,".ltx"))
 
 ```
-
-
 
