@@ -64,6 +64,7 @@
       # bash script has '--args jobNbr=$job threadNbr=$threadNbr 
       #      and perhaps refine=TRUE or =2...
       cmdl_args <- eval(parse(text=paste0("list(", paste(cmdl_args,collapse=", "),")")))
+      cmdl_boot_nsim <- cmdl_args$boot_nsim # with NULL default
       if (is.null(cmdl_refine <- cmdl_args$refine)) cmdl_refine <- FALSE
       if (is.null(cmdl_resummarize <- cmdl_args$resummarize)) cmdl_resummarize <- FALSE
       if (is.null(cmdl_fast_reClu <- cmdl_args$fast)) cmdl_fast_reClu <- FALSE 
@@ -80,14 +81,16 @@
       } else jobsubdir <- paste0("job_",cmdl_jobNbr,"/")
     } else {
       if (interactive()) {
+        # to overcome the following defaults, enter values before sourcing the script
         if ( ! exists("cmdl_refine")) cmdl_refine <- FALSE
         if ( ! exists("cmdl_resummarize")) cmdl_resummarize <- FALSE
         if ( ! exists("cmdl_reproject")) cmdl_reproject <- FALSE
         if ( ! exists("cmdl_jobNbr")) cmdl_jobNbr <- NULL
         if ( ! exists("cmdl_fast_reClu")) cmdl_fast_reClu <- FALSE
+        if ( ! exists("cmdl_boot_nsim")) cmdl_boot_nsim <- NULL
       } else {
         cmdl_refine <- cmdl_resummarize <- cmdl_fast_reClu <- FALSE
-        cmdl_jobNbr <- NULL
+        cmdl_jobNbr <- cmdl_boot_nsim <- NULL
       }
       if (Infusion:::.inRstudio()) {
         (thisfilepath <-  paste0(dirname(rstudioapi::getSourceEditorContext()$path),"/") )
@@ -96,7 +99,7 @@
         "make sure the work dir to be the source directory. Then:"
         (thisfilepath <- paste0(getwd(),"/"))
       }
-      procs_per_job <- max(14L, mydetectCores())
+      if ( ! exists("procs_per_job")) procs_per_job <- max(14L, mydetectCores())
       jobsubdir <- "./"
     }
     
@@ -709,6 +712,7 @@
 if ( ! on_genotoul &&
      is.null(cmdl_jobNbr) && # If not in series of analyses on cluster 
      ! .Platform$OS.type=="windows" &&
+     is.null(cmdl_boot_nsim) &&
      ! length(grep("_final_MAF", modelpath_nickname)) &&
      length(scaDGP)<14L) { 
   
@@ -793,6 +797,7 @@ if (FALSE) { # O_13from17_logNbn34 and O_13from17_logN1
 
   if (RUN_ABCRF <- (length(scaDGP)<14L && 
                     ! length(grep("_MAF", modelpath_nickname)) &&
+                    is.null(cmdl_boot_nsim) &&
                     ! cmdl_fast_reClu &&
                     ! length(grep("altsampling",thisfilepath)))) {
     library("abcrf")
@@ -1122,13 +1127,23 @@ if (FALSE) { # O_13from17_logNbn34 and O_13from17_logN1
         }
         
         ## Control of number of bootstrap replicates
-        nsim <- if (cmdl_fast_reClu) {
+        nsim <- if ( ! is.null(nsim <- cmdl_boot_nsim)) { # special non default case
+          # Use that nondefault nsim value and show it:
+          nsim <- as.integer(nsim)
+          print(paste("boot nsim =", nsim)) 
+          nsim
+        } else if (cmdl_fast_reClu) {
           0L
         } else if (length(LOWER)>8L) {
           if (interactive()) {0L} else {199L}
         } else if (final_MAF) {
           0L # 199L
         } else if (interactive()) {19L} else {199L}
+        rstar_R <- if (length(LOWER)>7L  ||  
+                       ! is.null(cmdl_boot_nsim) || # boot_nsim NOT used for Rstar
+                       final_MAF) {
+          0L
+        } else 1000L # speculative, not used in ms.
         if (exists("S_obs_table_info") && ! is.null(S_obs_table_info$par.grid)) {
           h0s_ii <- S_obs_table_info$par.grid[ii,]
           h0s_ii <- as.list(h0s_ii)
@@ -1150,7 +1165,7 @@ if (FALSE) { # O_13from17_logNbn34 and O_13from17_logN1
           abcrf_proj_K=abcrf_proj_all_K[[max_table_size]], 
           verbose=(interactive() || on_slurm),
           reftable_abcrf=reftable_abcrf_final[seq(na.omit(reftable_sizes[max_table_size])),], # ...protect against NA here after refine
-          rstar_R=if (length(LOWER)>7L || final_MAF) {0L} else 1000L, # speculative, not used in ms.
+          rstar_R=rstar_R, 
           ii =ii
         )
         if (length(grep("_MAF",modelpath_nickname))) {
