@@ -14,6 +14,7 @@ calc_sliks <- function(ii, S_obs,reftable_sizes, control.Simulate=NULL,
                        using="Rmixmod",
                        workflow_design=get_workflow_design(length(LOWER)),
                        Simulate="DIYABC_reftable_wrapper",
+                       npp=1L,
                        ...) {
   on_genotoul <- (user <- Sys.info()["user"]=="frousset") # control of gcinfo()
   if (is.null(names(reftable_sizes))) stop("'reftable_sizes' must be a *named* vector.")
@@ -39,14 +40,21 @@ calc_sliks <- function(ii, S_obs,reftable_sizes, control.Simulate=NULL,
                                      #
                                      control.Simulate=control.Simulate
     )
-    dprojectors <- vector("list", length(parNames))
-    names(dprojectors) <- paste0("p",parNames)
-    for (st in parNames) {
-      dprojectors[[paste0("p",st)]] <- project(st,stats=names(S_obs), data=reftable_raw,verbose=interactive(),
-                                               methodArgs=methodArgs, keep_data=FALSE)
+    if (packageVersion("Infusion")>"2.2.8") {
+      dprojectors <- def_projectors(reftable = reftable_raw,pars =parNames ,stats =names(S_obs) ,npp=npp,
+                                    verbose=interactive(),methodArgs=methodArgs, keep_data=FALSE)
+    } else {
+      if (npp>1L) stop("npp>1L not handled by this old version of Infusion.")
+      dprojectors <- vector("list", length(parNames))
+      names(dprojectors) <- paste0("p",parNames)
+      for (st in parNames) {
+        dprojectors[[paste0("p",st)]] <- project(st,stats=names(S_obs), data=reftable_raw,verbose=interactive(),
+                                                 methodArgs=methodArgs, keep_data=FALSE)
+      }
     }
-    
-    dprojSimuls <- project(reftable_raw,projectors=dprojectors,verbose=FALSE,is_trainset = TRUE, use_oob = TRUE)
+
+    dprojSimuls <- project(reftable_raw,projectors=dprojectors,verbose=FALSE,is_trainset = TRUE, 
+                           use_oob = TRUE, ext_projdata=reftable_raw)
     dprojSobs <- project(S_obs,projectors=dprojectors, is_trainset = FALSE, ext_projdata=reftable_raw)
     
     slik_siz <- infer_SLik_joint(dprojSimuls, stat.obs=dprojSobs, verbose=verbose,
