@@ -137,7 +137,7 @@ def estimate(x0, prior, rounds, num_sims):
 # In[ ]:
 
 
-x0_np = np.loadtxt("".join([workdir,"obs.txt"]))
+x0_np = np.loadtxt("".join([workdir,"S_obs_table.txt"]))
 n_rep = x0_np.shape[0]
 
 n_rep = 1

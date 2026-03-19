@@ -11,13 +11,8 @@ from sbi.utils import BoxUniform
 import time
 import pickle
 import sys
-if hasattr(sys,"ps1"): # interactive run
-    fromrep = 0
-    torep = 1
-else:
-    fromrep = int(sys.argv[1])-1   
-    torep = int(sys.argv[2])   
-    
+
+   
 
 
 # In[13]:
@@ -40,6 +35,40 @@ elif platform == "win32":
 
 os.chdir(workdir)
 
+import re
+for_timings = re.search("timings", workdir)
+
+
+if re.search("admixture|N_7from17", workdir):
+    #with open('N_7from17_defs.py') as src:
+    #    exec(src.read())
+    theta_dim = 7
+    if for_timings:
+        Data = np.loadtxt("".join([workdir,"statobs.noname.txt"]))
+    else:
+        x0_np = np.loadtxt("".join([workdir,"S_obs_table.txt"]))
+elif re.search("D_axy_8pars", workdir):
+    #with open('D_axy_8pars_defs.py') as src:
+    #    exec(src.read())
+    theta_dim = 8
+    if for_timings:
+        Data = np.loadtxt("".join([workdir,"statobs.noname.txt"]))
+    else:
+        x0_np = np.loadtxt("".join([workdir,"S_obs_table.txt"]))
+elif re.search("MVNcovmat|covariance", workdir):
+    #with open('MVNcovmat_defs.py') as src:
+    #    exec(src.read())
+    theta_dim = 15
+    S_obs_table = np.loadtxt("".join([workdir,"S_obs_table.txt"]))
+    if for_timings:
+        Data = S_obs_table[0] # fake data, allows uniform workflow for timingss
+
+if len(sys.argv) > 2:
+    fromrep = int(sys.argv[1])-1   
+    torep = int(sys.argv[2])  
+else:
+    fromrep = 0
+    torep = 1
 
 # In[14]:
 
@@ -118,7 +147,7 @@ def simulator(theta):
     return x
 
 def estimate(x0, prior, rounds, num_sims):
-    inference = NLE(prior=prior, density_estimator="maf", device=device)
+    trainer = NLE(prior=prior, density_estimator="maf", device=device)
     proposal = prior
     for r in range(rounds):
         print(f"  Round {r}")
@@ -129,32 +158,26 @@ def estimate(x0, prior, rounds, num_sims):
         # print(theta.size())
         x = simulator(theta)
         # print(x.size())
-        lf = inference.append_simulations(theta, x).train(
+        fitobject = trainer.append_simulations(theta, x).train(
             training_batch_size=128,
             show_train_summary=False
         )
-        posterior = inference.build_posterior(lf)
+        posterior = trainer.build_posterior(fitobject)
         proposal  = posterior.set_default_x(x0)
     samples = posterior.sample((10000,), x=x0, show_progress_bars=False)
-    samples[:, 0] = 10.0 ** samples[:, 0]
-    samples[:, 2] = 10.0 ** samples[:, 2]
-    samples[:, 3] = 10.0 ** samples[:, 3] - 1.0
-    samples[:, 5] = 10.0 ** samples[:, 5] - 1.0
-    samples[:, 6] = 10.0 ** samples[:, 6]    
     posterior_mean = samples[1:1000,:].mean(dim=0)
     posterior_q1 = samples[1:1000,:].quantile(0.025, dim=0)
     posterior_q2 = samples[1:1000,:].quantile(0.975, dim=0)   
     posterior_mean_10K = samples.mean(dim=0)
     posterior_q1_10K = samples.quantile(0.025, dim=0)
     posterior_q2_10K = samples.quantile(0.975, dim=0)   
-    return posterior_mean, posterior_q1, posterior_q2, posterior_mean_10K, posterior_q1_10K, posterior_q2_10K, inference
+    return posterior_mean, posterior_q1, posterior_q2, posterior_mean_10K, posterior_q1_10K, posterior_q2_10K, trainer, fitobject
 
 
 # In[16]:
 
+ 
 
-x0_np = np.loadtxt("".join([workdir,"obs.txt"]))
-# n_rep = x0_np.shape[0]
 
 n_rep = 1
 theta_dim = 7
@@ -174,8 +197,11 @@ posterior_q2s_10K = torch.empty((n_rep, theta_dim), device=device)
 for rep in range(fromrep,torep):
     print(f"\n=== Replicate {rep+1} ===")
     start = time.time()
-    x0 = torch.tensor(x0_np[rep], dtype=torch.float32, device=device).unsqueeze(0)
-    mean_rep, q1_rep, q2_rep, mean_rep_10k, q1_rep_10k, q2_rep_10k, inference = estimate(x0, prior, 10, 2000)
+    if for_timings:
+        x0 = torch.tensor(Data, dtype=torch.float32, device=device).unsqueeze(0)
+    else:
+        x0 = torch.tensor(x0_np[rep], dtype=torch.float32, device=device).unsqueeze(0)
+    mean_rep, q1_rep, q2_rep, mean_rep_10k, q1_rep_10k, q2_rep_10k, trainer, fitobject = estimate(x0, prior, 10, 2000)
     posterior_means[0, :] = mean_rep
     posterior_q1s[0, :] = q1_rep
     posterior_q2s[0, :] = q2_rep
@@ -184,8 +210,10 @@ for rep in range(fromrep,torep):
     posterior_q2s_10K[0, :] = q2_rep_10k
     end = time.time()
     print("Time spent:", end - start, "seconds")
-    with open(".".join(["inference",str(rep),"pkl"]), "wb") as handle:
-        pickle.dump(inference, handle)
+    if rep == 0:
+        print(fitobject) # check structure of neural network
+        with open(".".join(["fitobject",str(rep),"pkl"]), "wb") as handle:
+            pickle.dump(fitobject, handle)
     np.savetxt(".".join(["posterior_means",str(rep),"csv"]), posterior_means.cpu().numpy(), delimiter=";")
     np.savetxt(".".join(["posterior_q1s",str(rep),"csv"]), posterior_q1s.cpu().numpy(), delimiter=";")
     np.savetxt(".".join(["posterior_q2s",str(rep),"csv"]), posterior_q2s.cpu().numpy(), delimiter=";")
@@ -196,14 +224,14 @@ for rep in range(fromrep,torep):
 
 # In[23]:
 
-
-true_params = np.array([3162, 6, 158, 31, 65, 999, 501], dtype=np.float32)
-arr = np.round(posterior_means.cpu().numpy(), 2).ravel()
-true = true_params.ravel()
-
-print("=== Comparaison posterior_mean vs true_params ===\n")
-for a, t in zip(arr, true):
-    print(f"{a:>8.2f}   {t:>8.2f}")
+if not for_timings:
+    # true_params = np.array([3162, 6, 158, 31, 65, 999, 501], dtype=np.float32) # (approximate values are enough here)
+    true_params = np.array([log10(3162), 6, log10(158), log10(1+31), 65, log10(1+999), log10(501)], dtype=np.float32)
+    arr = np.round(posterior_means.cpu().numpy(), 2).ravel()
+    true = true_params.ravel()
+    print("=== Comparaison posterior_mean vs true_params ===\n")
+    for a, t in zip(arr, true):
+        print(f"{a:>8.2f}   {t:>8.2f}")
 
 
 # In[ ]:

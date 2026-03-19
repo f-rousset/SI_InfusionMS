@@ -31,7 +31,7 @@ regAbcrf.formula2 <- function (
   model.rf <- ranger::ranger(formula, data = data, num.trees = ntree, 
                      mtry = mtry, sample.fraction = sampsize/nrow(data), 
                      num.threads = ncores, # when run on a shared cluster, it is important to control this explicitly
-                     # Otherwise ranger's 'Default is number of CPUs available.' 
+                     # Otherwise ranger's default is (or has been) number of CPUs available.' 
                      keep.inbag = TRUE, importance = importance, ...)
   model.rf$NMAE <- mean(abs((model.response(mf) - model.rf$predictions)/model.response(mf)))
   cl <- match.call()
@@ -45,7 +45,7 @@ regAbcrf.formula2 <- function (
 build_abcrf_projections <- function(
     reftable_abcrf, parNames, Sobs, ntree, min.node.size, 
     ncores, # when run on a shared cluster, it is important to control this explicitly
-    # Otherwise ranger's 'Default is number of CPUs available.
+    # Otherwise ranger's default (or has been) is number of CPUs available.
     importance="none") {
   resu <- vector("list", length(parNames))
   names(resu) <- parNames
@@ -130,6 +130,7 @@ HPDint <- function (object, obs, training, level=0.95, densityEst="stats::densit
   cumw <- cumsum(dens[ord])
   cumw <- cumw/cumw[length(cumw)]
   mwc <- which.max(cumw>level) # ~ min(which(cumw>level)) as which.max returns the first value. Measurably faster 
+  # (This might not work if no cumw value =1)
   #(more that in comparisons here :https://stackoverflow.com/questions/29388334/find-position-of-first-value-greater-than-x-in-a-vector)
   range(xin[ord[1:mwc]])
 }

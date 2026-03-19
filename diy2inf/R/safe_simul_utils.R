@@ -5,11 +5,14 @@ safe_load <- function(fileroot,
   chk <- NULL
   for (objname in objnames) {
     if ( ! exists(objname,where = .GlobalEnv)) {
-      chk <- suppressWarnings(try(load(paste0(fileroot,".rda"), envir=.GlobalEnv), silent=TRUE))
+      Rdname <- paste0(fileroot,".rda")
+      chk <- suppressWarnings(try(load(Rdname, envir=.GlobalEnv), silent=TRUE))
       if (inherits(chk,"try-error")) {
-        message(paste0(fileroot,".rda is not available."))
+        if (length(intersect(dir(), Rdname))) { # dir(.,fixed = TRUE) only in recent versions of R
+          message(paste0(Rdname," found, but load() failed"))
+        } else message(paste0(Rdname," not found"))
         break
-      } else if (strict && ! objname %in% chk) stop(paste0(objname,".rda file found but does not contain ",objname))
+      } else if (strict && ! objname %in% chk) stop(paste0(Rdname," file has been read but does not contain object ",objname))
     }
   }
   chk
@@ -21,19 +24,18 @@ mydetectCores <- function() {
     max_nb_cores <- parallel::detectCores(logical = FALSE)
   } else if (length(grep("node|genologin",Sys.info()["nodename"]))) {
       max_nb_cores <- 1L # avoid nested parallelisation when running multiple analyses on the cluster
-      # ___F I X M E___ this is unclean, as in that I may allow nested parallelization on genotoul 
       warning("mydetectCores() called on genotoul.")
   } else {
     # assuming linux-like OS where this may work:
     # Dirk Eddelbuettel, "Re: [Rd] Detecting physical CPUs in detectCores() on Linux platforms" on R-devel list, 2023/08/08 
     # 4:16 message, and 2:07 message for more heuristic fallback.
     
-    # But this apparently returned NA when run thorugh slurm on genotoul
-    
+    # But this apparently returned NA when run through slurm on genotoul
     bla <- try(system("hwloc-info", intern=TRUE), silent=TRUE)
     # => This system call presumes that the libhwloc-dev and hwloc (debian) packages have been installed. 
     # Doc: https://www.open-mpi.org/projects/hwloc/doc/
     if (inherits(bla,"try-error")) {
+      message("mydetectCores() tried to run 'hwloc-info' but this failed.")
       # then using the more heuristic approach:
       d <- read.dcf("/proc/cpuinfo") 
       max_nb_cores <- as.integer(unique(d[, grep("cpu cores",colnames(d))]))

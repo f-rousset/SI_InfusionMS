@@ -50,7 +50,9 @@ if (FALSE) { # this should be run on the simulation server
 
 #setwd("D:/home/francois/travail/stats/Infusionplus/sbi/paper-infusion-SNLE/admixture")
 # setwd("D:/home/francois/travail/stats/Infusionplus/MS/SI_InfusionMS/diy2inf_simuls/admixtOutOfA/N_7from17/snle/")
-load("D:/home/francois/travail/stats/Infusionplus/diy2inf_simuls/admixtOutOfA/N_7from17/saves4Rmd.rda")
+load("D:/home/francois/travail/stats/Infusionplus/diy2inf_simuls/admixtOutOfA/N_7from17/saves4Rmd.rda",
+     verbose=TRUE)
+scaDGP <- unlist(scaDGparlist)
 
 {
   {
@@ -83,7 +85,7 @@ load("D:/home/francois/travail/stats/Infusionplus/diy2inf_simuls/admixtOutOfA/N_
     colnames(q2s) <- names(LOWER)
     
   }
-  if (the_.csv_contained_unscaled_values <- TRUE) { 
+  if (the_.csv_contained_unscaled_values <- FALSE) { 
     rescale_py_output <- function(df, # typically a data frame
                                   log10.=c("log.N2.", "log.t12.", "log.Na." ), 
                                   log1p10.=c("log1p.t23.", "log1p.t34.") 
