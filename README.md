@@ -32,7 +32,7 @@ which need to be specified in the first R chunks of the Rmarkdown file:
 
 Further, the `latex2rtf` and the `ggplot2` packages should be installed.
 
-Files related to `sbi` simulations were added in revision, in `SNLE/` subdirectories for three simulations scenarios. They include the `python` scripts used to run the simulations, e.g., [`snle_N_7from17.py`](diy2inf_simuls/admixtOutOfA/n_7from17/SNLE/snle_N_7from17.py), which can be run in an environment defined by
+Files related to `sbi` simulations were added in revision, in `SNLE/` subdirectories for three simulations scenarios. They include the `python` scripts used to run the simulations, e.g., [`snle_N_7from17.py`](diy2inf_simuls/admixtOutOfA/N_7from17/SNLE/allfilesforeachjob/snle_N_7from17.py), which can be run in an environment defined by
 ```
 conda create -n sbi_env python=3.12 && conda activate sbi_env
 pip install torch
