@@ -343,11 +343,13 @@ load4MS("diy2inf_simuls/Harmonia/D_axy_8pars_logTh4/S_obs_table.rda", verbose=TR
 ```
 
 ### Inference by SNLE using `sbi` python package
-The following chunk of code makes sure that an `R` script used to assemble the `SNLE_summaries.rda` file from the raw Python output files is included:
-```{r save_scripts_SNLE_8p}
+The following chunk of code makes sure that all files is included:
+```{r save_files_SNLE_8p}
 save4MS("diy2inf_simuls/Harmonia/D_axy_8pars/SNLE/summarize_snle.R")  
+filenames <- c("data_HA_INFUSION.txt", "diyabc-RF-linux-v1.1.36-o", "headerRF.txt",             
+"RNG_state_0000.bin", "S_obs_table.txt", "snle_D_axy_8pars.py", "statobsRF.txt" )
+for (nam in filenames) save4MS(paste0("diy2inf_simuls/Harmonia/D_axy_8pars/SNLE/allfilesforeachjob/", nam))
 ```
-An `SNLE/allfilesforeachjob/` subdirectory should also be present, including all files used to run the simulations.
 
 
 ```{r table_SNLE_8p}
@@ -844,11 +846,14 @@ print(myplot)
 ```
 
 ### Inference by SNLE using `sbi` python package
-The following chunk of code makes sure that an `R` script used to assemble the `SNLE_summaries.rda` file from the raw Python output files is included:
+The following chunk of code makes sure that all files is included:
 ```{r save_scripts_SNLE_7p}
 save4MS("diy2inf_simuls/admixtOutOfA/N_7from17/SNLE/summarize_snle.R")  
+filenames <- c("diyabc-RF-linux-v1.1.36-o", "headerRF.txt", "human.snp", "human.snpbin.txt",
+               "maf.txt",  "S_obs_table.txt", "RNG_state_0000.bin",  
+               "snle_N_7from17.py", "statobs.txt","statobsRF.txt"  )
+for (nam in filenames) save4MS(paste0("diy2inf_simuls/admixtOutOfA/N_7from17/SNLE/allfilesforeachjob/", nam))
 ```
-An `SNLE/allfilesforeachjob/` subdirectory should also be present, including all files used to run the simulations.
 
 ```{r table_SNLE_7p}
 modelpath_nickname <- "N_7from17"
@@ -1277,10 +1282,12 @@ ecdfs_df <- get(full_df_name)
   cvrg.bootCI.TFI <- do.call(rbind, perf_summs)[,"cvrg.bartlettP"]
 ```
 ### Inference by SNLE using `sbi` python package
-The following chunk of code makes sure that the `python` script used to run the simulations, and an `R` script used to assemble the `SNLE_summaries.rda` file from the raw Python output files, are included in the published code:
+The following chunk of code makes sure that the given files are included in the published code:
 ```{r save_scripts_MVN}
-save4MS("toyTests/MVNcovmat/SNLE/snle_MVNcovmat.py") 
-save4MS("toyTests/MVNcovmat/SNLE/summarize_snle.R")  
+save4MS("toyTests/MVNcovmat/SNLE/S_obs_table.txt") # simulated data (from R) 
+save4MS("toyTests/MVNcovmat/SNLE/snle_MVNcovmat.py") # python script to run inferences
+# script to assemble SNLE_summaries.rda from the raw Python files:
+save4MS("toyTests/MVNcovmat/SNLE/summarize_snle.R") 
 ```
 
 ```{r tableMVN_SNLE}
