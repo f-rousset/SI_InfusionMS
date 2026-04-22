@@ -1,7 +1,8 @@
 ### Scripts and results for "A new iterative framework for simulation-based population genetic inference with improved coverage properties of confidence intervals"
 By Rousset, Leblois, Estoup & Marin 
 
-This paper is available as a preprint on [biorXiv](https://www.biorxiv.org/content/10.1101/2024.09.30.615940) and [recommended by *PCi Math. & Comp. Biol*](https://mcb.peercommunityin.org/articles/rec?id=426).
+The paper is available as a preprint on [biorXiv](https://www.biorxiv.org/content/10.1101/2024.09.30.615940) and [recommended by *PCi Math. & Comp. Biol*](https://mcb.peercommunityin.org/articles/rec?id=426).
+The version of the scripts associated with the recommended version is [57b03f6](https://github.com/f-rousset/SI_InfusionMS/commit/57b03f639dc124bcb1682fd7d830e8c43ccf2fd4) and is also available as a [Zenodo](https://doi.org/10.5281/zenodo.19615138) report.
 
 The Rmarkdown file [`Infusion.Rmd`](InfusionMS.Rmd) can be used to generate the **Figures and Tables** 
 describing the results of this paper, using information saved in subdirectories.  The Rmarkdown file and its [html output](InfusionMS.html), can be consulted to match a given subdirectory to a given Table or Figure from the ms.
