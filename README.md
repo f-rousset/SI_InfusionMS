@@ -1,7 +1,7 @@
 ### Scripts and results for "A new iterative framework for simulation-based population genetic inference with improved coverage properties of confidence intervals"
 By Rousset, Leblois, Estoup & Marin 
 
-The paper [recommended by *PCi Math. & Comp. Biol*](https://mcb.peercommunityin.org/articles/rec?id=426) and 
+This paper is [recommended by *PCi Math. & Comp. Biol*](https://mcb.peercommunityin.org/articles/rec?id=426) and 
 [published in *Peer Community Journal*](https://peercommunityjournal.org/articles/10.24072/pcjournal.721/).
 The version of the scripts associated with the recommended version is [57b03f6](https://github.com/f-rousset/SI_InfusionMS/commit/57b03f639dc124bcb1682fd7d830e8c43ccf2fd4) and is also available as a [Zenodo](https://doi.org/10.5281/zenodo.19615138) report.
 
